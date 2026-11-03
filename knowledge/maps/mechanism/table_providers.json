@@ -1,0 +1,87 @@
+{
+  "_about": [
+    "战利品表目录 → 该表的产出者节点。方案 §4.5：优先用 holds 事实；无则退回命名约定并检查覆盖率。",
+    "holds 事实（code_link 的 dropsLike / wallVariant 借用）始终优先，本表只补事实覆盖不到的。",
+    "",
+    "  kind = block     目录内路径即方块名，body 是 block:<名>（可由 places 从物品推导）",
+    "  kind = entity    目录内首段即实体名（子变体如 sheep/white 取首段），body 是 entity:<名>",
+    "  kind = assume    body 是一条假设节点，表示该场景可发生",
+    "",
+    "每个 kind 都有对账：block / entity 的名字必须在注册表里，否则记台账不静默丢弃。"
+  ],
+
+  "blocks": { "kind": "block" },
+  "entities": { "kind": "entity" },
+
+  "chests": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "结构内的箱子可被找到并开启"
+  },
+  "archaeology": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "可疑方块只在结构里生成"
+  },
+  "pots": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "饰纹陶罐在试炼密室等结构里"
+  },
+  "barrels": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "木桶在结构里"
+  },
+  "spawners": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "试炼刷怪笼在试炼密室里"
+  },
+  "equipment": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "试炼密室的装备奖励"
+  },
+  "dispensers": {
+    "kind": "assume",
+    "node": "assume:structure_loot",
+    "basis": "结构里的发射器内含"
+  },
+
+  "gameplay": {
+    "kind": "assume",
+    "node": "assume:player",
+    "basis": "钓鱼、晨礼等玩家动作触发；`piglin_bartering` 除外——付款物在 PiglinAi.BARTERING_ITEM 里写明，由 idiom piglin_barter 出事实，事实优先于本约定"
+  },
+  "harvest": {
+    "kind": "assume",
+    "node": "assume:player",
+    "basis": "收获某物触发"
+  },
+  "carve": {
+    "kind": "assume",
+    "node": "assume:player",
+    "basis": "玩家雕刻"
+  },
+  "till": {
+    "kind": "assume",
+    "node": "assume:player",
+    "basis": "玩家耕作"
+  },
+  "brush": {
+    "kind": "assume",
+    "node": "assume:player",
+    "basis": "玩家刷拭犰狳"
+  },
+  "charged_creeper": {
+    "kind": "assume",
+    "node": "assume:mob_spawn",
+    "basis": "苦力怕被闪电击中"
+  },
+
+  "shearing": {
+    "kind": "holds_only",
+    "basis": "剪毛表由 code_link 的 holds 事实挂到羊身上，不走约定"
+  }
+}

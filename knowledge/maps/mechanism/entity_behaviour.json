@@ -1,0 +1,109 @@
+{
+  "_about": [
+    "行为产出：某主体执行某行为，产出一件物品。方案 §9 的知识表。",
+    "",
+    "这些产出一律无可用数据包痕迹：无配方、无战利品表条目、不在世界生成引用里，",
+    "只存于行为代码，且写法互不相同（掉方块、放入物品实体、替换手持物、改方块状态、孵化）。",
+    "收于此表的理由见 knowledge/README.md。",
+    "",
+    "相邻几类的分工：",
+    "  entity_sources        实体自身的来源（本表只管它产出什么）",
+    "  bindings/spawner      刷怪笼刷什么（注册表数据，非行为）",
+    "  code/death_drops      字面量产出（形态固定，由 idiom 提取）",
+    "  transform_conventions 按名字配对的方块转换（本表用于无命名规律者）",
+    "",
+    "actor 可为任意排序的节点，行为主体不止实体：",
+    "  实体   海龟产卵、末影龙吐息",
+    "  方块   铁砧耗损、青蛙卵孵化",
+    "  假设   玩家书写、玩家填充地图",
+    "  世界   树生成时挂蜂巢",
+    "",
+    "字段：",
+    "  produces  产出的节点列表（item / block / entity）",
+    "  actor     行为发生所必需的主体节点",
+    "  inputs    消耗品，会被用掉",
+    "  basis     一行机制依据",
+    "  evidence  代码位置或数据包路径，供复算"
+  ],
+
+  "dragon_egg": {
+    "produces": ["item:minecraft:dragon_egg"],
+    "actor": "entity:minecraft:ender_dragon",
+    "inputs": [],
+    "basis": "末影龙被击败后在返回传送门上方生成一个龙蛋方块；挖掉即得",
+    "evidence": "EnderDragonFight 第 350 行 setBlockAndUpdate(..., Blocks.DRAGON_EGG.defaultBlockState())"
+  },
+
+  "dragon_breath": {
+    "produces": ["item:minecraft:dragon_breath"],
+    "actor": "entity:minecraft:ender_dragon",
+    "inputs": ["item:minecraft:glass_bottle"],
+    "basis": "用玻璃瓶接末影龙吐息留下的滞留云；瓶子被换成龙息瓶",
+    "evidence": "BottleItem#use 第 51 行 turnBottleIntoItem(itemStack, player, new ItemStack(Items.DRAGON_BREATH))"
+  },
+
+  "turtle_egg": {
+    "produces": ["item:minecraft:turtle_egg"],
+    "actor": "entity:minecraft:turtle",
+    "inputs": [],
+    "basis": "海龟回到出生沙滩产卵，得到 1-4 枚海龟蛋方块；精准采集可得物品形态",
+    "evidence": "Turtle 第 439 行 Blocks.TURTLE_EGG.defaultBlockState().setValue(TurtleEggBlock.EGGS, random.nextInt(4) + 1)"
+  },
+
+  "frogspawn": {
+    "produces": ["block:minecraft:frogspawn"],
+    "actor": "entity:minecraft:frog",
+    "inputs": [],
+    "basis": "青蛙在临水的方块上产卵，生成青蛙卵方块",
+    "evidence": "FrogAi 第 90 行 Activity.LAY_SPAWN 的第 3 步 TryLaySpawnOnFluidNearLand.create(Blocks.FROGSPAWN)"
+  },
+
+  "tadpole": {
+    "produces": ["entity:minecraft:tadpole"],
+    "actor": "block:minecraft:frogspawn",
+    "inputs": [],
+    "basis": "青蛙卵在水下被破坏时孵化出 2-5 只蝌蚪",
+    "evidence": "FrogspawnBlock#spawnTadpoles 用 EntityTypes.TADPOLE.create(level, EntitySpawnReason.BREEDING)；MIN/MAX_TADPOLES_SPAWN = 2 / 5"
+  },
+
+  "player_head": {
+    "produces": ["item:minecraft:player_head"],
+    "actor": "assume:player",
+    "inputs": [],
+    "basis": "玩家被闪电苦力怕炸死时掉出自己的头；凶手是闪电苦力怕即必掉",
+    "evidence": "Creeper#killedEntity：isPowered() 时对实体调用 dropFromLootTable(..., BuiltInLootTables.CHARGED_CREEPER, ...)，玩家头是该表的产出"
+  },
+
+  "bee_nest": {
+    "produces": ["block:minecraft:bee_nest"],
+    "actor": "world:minecraft:overworld",
+    "inputs": [],
+    "basis": "带蜂巢的树在生成时挂上蜂巢方块；蜂巢本身不是独立的 worldgen feature",
+    "evidence": "worldgen/feature 里没有 bee_nest 方块引用；树用 decorator 挂蜂巢，decorator 只有概率没有方块名（JSON 里是 {type: minecraft:beehive, probability: 0.2}），方块名写在 BeehiveDecorator 代码里"
+  },
+
+  "chipped_anvil": {
+    "produces": ["block:minecraft:chipped_anvil"],
+    "actor": "block:minecraft:anvil",
+    "inputs": [],
+    "basis": "铁砧每用掉三分之一耐久降一级：anvil → chipped_anvil → damaged_anvil；末级再损耗则销毁。挖掉即得",
+    "evidence": "AnvilBlock#damage 按 AnvilBlock.Damage 枚举降级；方块名与等级之间没有后缀规律（chipped_anvil 不是 anvil 加后缀），所以不走 transform_conventions"
+  },
+
+  "filled_map": {
+    "produces": ["item:minecraft:filled_map"],
+    "actor": "assume:player",
+    "inputs": ["item:minecraft:map"],
+    "basis": "空地图拿在手上探索后被填充成已填充的地图；制图师也卖成品图，但那条路走的是各自的地图物品",
+    "evidence": "MapItem#update / MapItemSavedData 在玩家进入未记录区块时把空的 filled_map 写成有内容的；物品 id 始终是 minecraft:filled_map"
+  },
+
+  "written_book": {
+    "produces": ["item:minecraft:written_book"],
+    "actor": "assume:player",
+    "inputs": ["item:minecraft:writable_book"],
+    "basis": "笔与书签名后变成成书；签名后不能继续编辑",
+    "evidence": "WrittenBookItem / WritableBookItem 的 sign 流程；配方 crafting_special_bookcloning 只做复制，不产首本"
+  }
+}
+

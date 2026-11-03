@@ -1,0 +1,34 @@
+{
+  "_about": [
+    "方块之间的固化、脱水、死亡约定。不来自 block_transform 事实（那族记玩家以工具",
+    "作用于方块），而是方块自身的物理行为，只能以机制知识加命名约定表达。",
+    "",
+    "每条声明扫描侧的模式与两侧名字模板，按注册表配对并检查覆盖率：",
+    "命中数与配对产出数不符时记 miss，不静默缩小适用范围。",
+    "",
+    "字段：",
+    "  match_prefix / match_suffix  扫描侧方块名的前缀或后缀，{stem} 是余部",
+    "  stem_contains                余部必须包含的子串，用来收窄过宽的词缀",
+    "  head                         目标名模板（规则 head）",
+    "  body                         源名模板（规则 body）",
+    "  requires                     附加前提节点",
+    "  basis                        一行依据"
+  ],
+
+  "water_solidify": {
+    "match_suffix": "_powder",
+    "head": "{stem}",
+    "body": "{stem}_powder",
+    "requires": ["assume:water_source"],
+    "basis": "混凝土粉末遇水固化成混凝土；两版的方块名只差 `_powder` 后缀"
+  },
+
+  "coral_death": {
+    "match_prefix": "dead_",
+    "stem_contains": "coral",
+    "head": "dead_{stem}",
+    "body": "{stem}",
+    "requires": [],
+    "basis": "珊瑚离开水后变成同名 dead_ 变体，不需要工具，也不消耗资源"
+  }
+}

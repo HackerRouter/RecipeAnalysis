@@ -1,0 +1,36 @@
+{
+  "_about": [
+    "战利品条件 → 判定类别。方案 §4.5：未登记的条件类型 → 编译期硬失败并列台账。",
+    "覆盖范围与两版 loot_table 事实的条件全集对账（tools/probe-loot-types.py）。",
+    "",
+    "  hard             不满足则完全没有该物品，编译成 body 节点",
+    "  soft             世界状态约束，进 soft，不阻塞可达性",
+    "  meta_probability 只影响概率或数量，进 meta",
+    "  ignore           与获取路径无关",
+    "  unresolved       已知是硬前置但事实里查不到内容，记台账，不静默当 ignore",
+    "  combinator       组合器，内层条件由适配器摊平后无法判定，记台账"
+  ],
+
+  "minecraft:survives_explosion": "soft",
+  "minecraft:random_chance": "meta_probability",
+  "minecraft:random_chance_with_looting": "meta_probability",
+  "minecraft:random_chance_with_enchanted_bonus": "meta_probability",
+  "minecraft:table_bonus": "meta_probability",
+  "minecraft:killed_by_player": "soft",
+  "minecraft:entity_properties": "soft",
+  "minecraft:location_check": "soft",
+  "minecraft:damage_source_properties": "soft",
+  "minecraft:block_state_property": "soft",
+  "minecraft:match_block": "soft",
+
+  "minecraft:match_tool": "unresolved",
+
+  "minecraft:tool/can_silk_touch": "hard",
+  "minecraft:tool/can_shear": "hard",
+  "minecraft:tool/fast_cooking": "soft",
+
+  "minecraft:all_of": "combinator",
+  "minecraft:any_of": "combinator",
+  "minecraft:alternative": "combinator",
+  "minecraft:inverted": "combinator"
+}

@@ -1,0 +1,167 @@
+{
+  "_about": [
+    "生存不可获取的物品：存在、可查到，但无任何获取途径。方案 §9 的例外表。",
+    "",
+    "用途：将 no_rule 这个笼统桶拆分，使报告可回答「这些物品为何都无路径」。",
+    "不得用它掩盖应当补齐的路径：凡数据包或代码中有获取机制的，一律不入本表，",
+    "即使该机制尚未提取——那种情形应留在 no_rule 作为未覆盖机制。",
+    "",
+    "判据（三条满足任一即入表）：",
+    "  1. 创造栏 OP_BLOCKS 页内（非操作员不可见），或全库无任何创造页收录",
+    "  2. 方块不可破坏（无工具可采下，含精准采集）",
+    "  3. 只能由命令放置或替换，原版玩法中不作为掉落物出现",
+    "",
+    "不入本表的 no_rule 物品 = 已知有机制但尚未提取，属待补项，见 plan §11。",
+    "",
+    "字段：",
+    "  category  技术方块 / 不可破坏 / 命令专用 / 生存无途径",
+    "  basis     一行依据，能对上 facts-26.3.md 的创造与技术物品一节"
+  ],
+  "_patterns": [
+    {
+      "match": "*_spawn_egg",
+      "category": "创造专属",
+      "basis": "刷怪蛋只在创造模式物品栏提供，生存中无任何获取途径"
+    },
+    {
+      "items": [
+        "minecraft:command_block_minecart",
+        "minecraft:debug_stick"
+      ],
+      "category": "创造专属",
+      "basis": "命令方块矿车与调试棒属操作员工具，生存中无任何获取途径"
+    }
+  ],
+  "minecraft:air": {
+    "category": "命令专用",
+    "basis": "空气，非可持物；注册表里的占位条目"
+  },
+  "minecraft:barrier": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内，非操作员不可见"
+  },
+  "minecraft:bedrock": {
+    "category": "不可破坏",
+    "basis": "任何工具都挖不下来，无战利品表"
+  },
+  "minecraft:budding_amethyst": {
+    "category": "不可破坏",
+    "basis": "紫水晶母岩，精准采集也不掉落本体"
+  },
+  "minecraft:chain_command_block": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内"
+  },
+  "minecraft:chorus_plant": {
+    "category": "生存无途径",
+    "basis": "本体无物品形态掉落；紫颂花长成的连接体，挖掘只掉紫颂果或自身替换"
+  },
+  "minecraft:command_block": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内"
+  },
+  "minecraft:dirt_path": {
+    "category": "生存无途径",
+    "basis": "铲草方块得到的地形变体，挖回只掉泥土"
+  },
+  "minecraft:end_portal_frame": {
+    "category": "不可破坏",
+    "basis": "末地传送门框架，无法挖掘"
+  },
+  "minecraft:farmland": {
+    "category": "生存无途径",
+    "basis": "锄头耕出的地形变体，挖回只掉泥土"
+  },
+  "minecraft:infested_chiseled_stone_bricks": {
+    "category": "生存无途径",
+    "basis": "蠹虫宿主方块，只由蠹虫钻入生成，挖掉掉回普通方块"
+  },
+  "minecraft:infested_cobblestone": {
+    "category": "生存无途径",
+    "basis": "同上"
+  },
+  "minecraft:infested_cracked_stone_bricks": {
+    "category": "生存无途径",
+    "basis": "同上"
+  },
+  "minecraft:infested_deepslate": {
+    "category": "生存无途径",
+    "basis": "同上"
+  },
+  "minecraft:infested_mossy_stone_bricks": {
+    "category": "生存无途径",
+    "basis": "同上"
+  },
+  "minecraft:infested_stone": {
+    "category": "生存无途径",
+    "basis": "同上"
+  },
+  "minecraft:infested_stone_bricks": {
+    "category": "生存无途径",
+    "basis": "同上"
+  },
+  "minecraft:jigsaw": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内，结构拼装用"
+  },
+  "minecraft:knowledge_book": {
+    "category": "命令专用",
+    "basis": "不在任何创造页；只由 /give 给出"
+  },
+  "minecraft:light": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内，16 个亮度等级是同一物品的组件变体"
+  },
+  "minecraft:petrified_oak_slab": {
+    "category": "命令专用",
+    "basis": "不在任何创造页；原版无获取途径"
+  },
+  "minecraft:suspicious_gravel": {
+    "category": "生存无途径",
+    "basis": "刷子刷出的才是奖励；战利品表为空，挖掉或刷完都不掉本体"
+  },
+  "minecraft:suspicious_sand": {
+    "category": "生存无途径",
+    "basis": "同上：方块可由沙漠神殿等结构生成，但物品形态无法取得"
+  },
+  "minecraft:frogspawn": {
+    "category": "生存无途径",
+    "basis": "青蛙卵只能在水下被破坏时孵化成蝌蚪；陆地上挖碎、精准采集也不掉物品。战利品表是空表"
+  },
+  "minecraft:reinforced_deepslate": {
+    "category": "不可破坏",
+    "basis": "远古城市方块，挖不掉也不掉落"
+  },
+  "minecraft:repeating_command_block": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内"
+  },
+  "minecraft:spawner": {
+    "category": "不可破坏",
+    "basis": "刷怪笼的战利品表只有空条目；精准采集也不掉落本体"
+  },
+  "minecraft:structure_block": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内"
+  },
+  "minecraft:structure_void": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内"
+  },
+  "minecraft:test_block": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内，按 TestBlockMode 展开"
+  },
+  "minecraft:test_instance_block": {
+    "category": "命令专用",
+    "basis": "OP_BLOCKS 页内"
+  },
+  "minecraft:trial_spawner": {
+    "category": "不可破坏",
+    "basis": "试炼刷怪笼，战利品表不含本体"
+  },
+  "minecraft:vault": {
+    "category": "不可破坏",
+    "basis": "试炼密室宝库，不可挖掘"
+  }
+}

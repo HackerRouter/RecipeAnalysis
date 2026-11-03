@@ -1,0 +1,23 @@
+{
+  "_about": [
+    "变换的双向性。变换事实记的是玩家用某工具作用于某方块，只有一个方向：",
+    "  block:氧化物 ← block:更氧化物 + tool:axe",
+    "同一组方块关系隐含反方向：涂蜡与自然氧化都作用于同一批方块，只是不需要斧子。",
+    "",
+    "本表按事实里的 sound 认变换类，不枚举方块。每类给出反方向所需：",
+    "  requires  反方向成立所必需的前提节点（可空）",
+    "  basis     可反推的依据，一行",
+    "",
+    "未列于此的 sound（strip / till / flatten）是不可逆的玩家动作，不产反方向规则。"
+  ],
+
+  "minecraft:item.axe.wax_off": {
+    "requires": ["item:minecraft:honeycomb"],
+    "basis": "涂蜡：蜜脾作用于未涂蜡的同类方块，得到涂蜡方块；除蜡只是其逆"
+  },
+
+  "minecraft:item.axe.scrape": {
+    "requires": ["assume:time"],
+    "basis": "氧化：铜系方块随时间自然氧化一代，刮削是它的逆；世界无限，时间足够则必然发生"
+  }
+}

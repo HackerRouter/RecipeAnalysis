@@ -1,0 +1,85 @@
+# 分析的前提。求解器不内置任何常识，全部前提在此声明。
+#
+# 每条假设进输出、可审查、可单独关闭。
+# `survival = false` 的假设在判定时视为不成立，用于观察去掉该前提后多少物品转为不可达。
+# 同时作为不动点求解的播种节点。定位与校验规则见 knowledge/README.md。
+
+[assumes.player]
+node = "assume:player"
+survival = true
+basis = "玩家存在，能移动、能破坏与放置方块、能持有物品"
+
+[assumes.time]
+node = "assume:time"
+survival = true
+basis = "游戏时间会流逝，作物会生长、熔炉会烧炼、随机刻会推进"
+
+[assumes.crafting_table]
+node = "assume:crafting_table"
+survival = true
+basis = "玩家能搭出工作台；工作台本身由原木合成，见配方事实"
+# 这一条看似可与配方链合并，但 2x2 背包配方不需要工作台，
+# 而 3x3 配方全部需要。把它单列，才能把「3x3 才能做的物品」与「2x2 就能做的」区分开。
+
+[assumes.furnace_fuel]
+node = "assume:furnace_fuel"
+survival = true
+basis = "存在可再生燃料（木头/煤炭/熔岩桶）；具体用哪种属难度问题，不在本项目范围"
+
+[assumes.water_source]
+node = "assume:water_source"
+survival = true
+basis = "存在无限水源，可用两桶水造出无限水；生物桶与瓶装水依赖它"
+
+[assumes.lava_source]
+node = "assume:lava_source"
+survival = true
+basis = "主世界地下存在熔岩池；熔岩桶、黑曜石、圆石生成器依赖它"
+
+[assumes.mob_spawn]
+node = "assume:mob_spawn"
+survival = true
+basis = "生物会按刷怪规则自然生成；不判效率与场地，只判「会不会生成」"
+
+[assumes.villager_trade]
+node = "assume:villager_trade"
+survival = true
+basis = "职业村民会补货，交易可重复进行；不判村庄位置与交易等级"
+
+[assumes.wandering_trader]
+node = "assume:wandering_trader"
+survival = true
+basis = "流浪商人会随机在玩家附近生成并出售货物；不判生成概率与交易次数（存在性语义）"
+# 与 villager_trade 分开的理由：前提不同（不依赖村庄、不补货），
+# 共用一个节点就无法单独观察「去掉村庄后还能拿到什么」。
+
+[assumes.enchanting]
+node = "assume:enchanting"
+survival = true
+basis = "附魔台与铁砧可用，附魔可施加到物品上；具体附出哪一条属概率，不在判定范围"
+
+[assumes.structure_loot]
+node = "assume:structure_loot"
+survival = true
+basis = "结构内的箱子可被找到并开启；不判结构密度与探索成本（存在性语义：世界无限，生成条件非空即必然出现）"
+
+[assumes.structure_content]
+node = "assume:structure_content"
+survival = true
+basis = """
+结构生成代码里直接放置的方块与生物可被取得。
+与 structure_loot 分开：那条说的是箱子里的东西，这条说的是结构本身「装」进去的东西——
+海底神殿的湿海绵房间、林地府邸的唤魔者、远古守卫者。
+判据只看代码里以 EntitySpawnReason.STRUCTURE 生成的实体与结构生成器里 setBlock 的方块，
+不按结构名归类（类名与结构 ID 不一一对应：OceanMonumentPieces → monument）。
+"""
+
+[assumes.nether]
+node = "assume:nether"
+survival = true
+basis = "玩家能建造并点燃下界传送门进入下界"
+
+[assumes.end]
+node = "assume:end"
+survival = true
+basis = "玩家能进入末地；进入方式（要塞+末影之眼）由配方与结构事实给出"

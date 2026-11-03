@@ -1,0 +1,21 @@
+{
+  "_about": [
+    "方案 §9 的 tool_class：工具类 → 能充当该类的物品集合。",
+    "值写成物品标签（tag），由 bridge/tool 编成 tool:X ← tag:item/<tag>。",
+    "不在此枚举具体物品：枚举会随版本漂移，且违反不写清单的取证纪律。",
+    "空值表示该类是单件工具：工具 id 即物品 id，编成 tool:X ← item:X。",
+    "单件工具没有物品标签（剪刀确实没有），但这不等于只能由事实给出：",
+    "照那种读法，凡依赖剪刀的战利品规则全断，整片可剪方块集不可达。"
+  ],
+  "minecraft:axe": "minecraft:axes",
+  "minecraft:hoe": "minecraft:hoes",
+  "minecraft:shovel": "minecraft:shovels",
+  "minecraft:pickaxe": "minecraft:pickaxes",
+  "minecraft:sword": "minecraft:swords",
+  "minecraft:shears": null,
+  "minecraft:brush": null,
+  "minecraft:flint_and_steel": null,
+  "minecraft:water_bucket": null,
+  "minecraft:lava_bucket": null,
+  "minecraft:glass_bottle": null
+}
