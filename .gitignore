@@ -1,0 +1,20 @@
+/ref/
+/plan/
+
+# 输入包（只读，永不修改）与生成产物
+/inputs/
+/output/
+
+# 缓存：datagen 产物与中间事实库，可整目录删除后重建
+.cache/
+.tmp/
+
+# datagen 的 log4j 输出（cwd 在 .cache 内，这行防它漏到根目录）
+logs/
+
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
