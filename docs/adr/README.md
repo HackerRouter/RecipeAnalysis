@@ -1,0 +1,16 @@
+# docs/adr/
+
+设计决策按主题归并，一份管一个方面。每份只写「换一种做法会错在哪」与判据——取证过程、进度数字、已被代码与测试钉住的守卫不进正文。
+
+| 文件 | 管什么 |
+|---|---|
+| [`0001-inputs-and-source-export.md`](0001-inputs-and-source-export.md) | 源码根怎么定位、提交号谁给、版本实测结论放哪 |
+| [`0002-fact-and-link-kinds.md`](0002-fact-and-link-kinds.md) | 新增事实种类与链接种类的判据、族级不可用、标签条目展开 |
+| [`0003-worldgen-and-references.md`](0003-worldgen-and-references.md) | 世界生成里方块引用的四种写法、排序锚定、方块名不在 JSON 里的特征 |
+| [`0004-structure-and-template-bindings.md`](0004-structure-and-template-bindings.md) | 模板方块与实体、结构刷怪、结构生成器里的实体、例外表优先级 |
+| [`0005-entity-sources-and-behaviour.md`](0005-entity-sources-and-behaviour.md) | 行为产出为什么用声明式表、实体来源四类、知识表的版本对账 |
+| [`0006-trades.md`](0006-trades.md) | 交易族的规则形状、流浪商人单列假设、代码侧提取的完整性 |
+| [`0007-transforms-and-tools.md`](0007-transforms-and-tools.md) | 方块变换的事实形状、反方向与命名约定、工具要求从组件推导 |
+| [`0008-code-side-extraction.md`](0008-code-side-extraction.md) | 结构生成代码、生物桶、目录约定兜底与适配器约束 |
+| [`0009-report-artifacts.md`](0009-report-artifacts.md) | 物品全集与可达率分母、关系图的内部表示与渲染分离 |
+| [`0010-testing.md`](0010-testing.md) | 测试框架选型与版本过滤的生效时机 |

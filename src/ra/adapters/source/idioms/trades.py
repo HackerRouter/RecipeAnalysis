@@ -426,7 +426,7 @@ def offers_to_links(
     两个版本判定相反。
 
     所以这里与数据包族对齐：前提就是 `assume:villager_trade` /
-    `assume:wandering_trader`（按职业选，见 ADR 0007 / 0017）。村民是
+    `assume:wandering_trader`（按职业选，见 ADR 0006）。村民是
     交易得以发生的**前提**，不是要递归求可达的物品。
 
     产出物带随机属性（附魔、药水、染料）时，`item` 节点不变，属性写进
@@ -480,8 +480,8 @@ def offers_to_links(
 
 
 # 职业 → 前提节点。与 `ir/families/trades.py` 的判据必须一致：
-# 流浪商人随机生成、不补货、不依赖村庄，单列一条假设（ADR 0017）；
-# 其余职业共用村民交易（ADR 0007）。这里硬编码而不是读 knowledge，
+# 流浪商人随机生成、不补货、不依赖村庄，单列一条假设（ADR 0006）；
+# 其余职业共用村民交易（ADR 0006）。这里硬编码而不是读 knowledge，
 # 因为 idiom 层不读文件，且「哪个职业是流浪商人」是数据形状，不是立场。
 def _assumption_nodes(profession: str) -> tuple[str, ...]:
     if profession == WANDERER_PROFESSION:

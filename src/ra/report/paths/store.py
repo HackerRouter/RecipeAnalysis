@@ -7,7 +7,7 @@ serializer 名重复上千次，内联是主要膨胀来源）、可 diff（字�
 规则行在后，行序确定）、自足（规则 + 状态 + 种子同在一个文件，读回即可建图，
 不必再过一遍求解）。不用 pickle / SQLite：前者不可移植也不可读，后者对
 几 MB 的只读产物是过度设计。完整对比与实测数字见
-`docs/adr/0020-graph-representation-and-rendering.md`。
+`docs/adr/0009-report-artifacts.md`。
 
 ## 三值状态
 

@@ -1,7 +1,7 @@
 """`ra-paths` 的命令行入口：读一份内部表示，出一份视图。
 
 为什么可视化是独立命令、与 `ra graph` 怎么分工、依赖上的取舍，见
-`docs/adr/0020-graph-representation-and-rendering.md`。本模块只做参数解析
+`docs/adr/0009-report-artifacts.md`。本模块只做参数解析
 与「读 `graph.json` → 建图 → 渲染」的编排，不碰 `inputs/`，不重算规则与不动点。
 """
 

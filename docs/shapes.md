@@ -27,7 +27,7 @@
 
 派生内容不得手工放置。`data/` 与反编译源码树的 `resources/data` 除结构模板外逐一同名同路径，因此数据包不必从 `--server` 导出取得。
 
-反编译源码仓的提交号由用户显式配置，程序不推导（[ADR 0014](adr/0014-commit-explicit-config.md)）。导出用 `git archive <提交>:<Java 源码根>`，不 checkout。Java 源码根由特征文件定位，不查候选目录表（[ADR 0013](adr/0013-source-tree-by-feature-file.md)）。
+反编译源码仓的提交号由用户显式配置，程序不推导（[ADR 0001](adr/0001-inputs-and-source-export.md)）。导出用 `git archive <提交>:<Java 源码根>`，不 checkout。Java 源码根由特征文件定位，不查候选目录表。
 
 ## 数据包目录归属
 
@@ -80,7 +80,7 @@
 
 `entities[].id` 也可能不是实体（26.3 的 `minecraft:cushion` 是方块实体），
 比对 `entity_type` 注册表后不通过的要留痕，不能静默跳过
-（[ADR 0019](adr/0019-template-entities.md)）。
+（[ADR 0004](adr/0004-structure-and-template-bindings.md)）。
 
 **反编译源码树里的同名模板仍逐文件登记**（`classified_skip` + 规则名），不静默忽略：它们存在于输入包里，只是不作为结构事实的来源。
 
@@ -109,9 +109,18 @@
 
 `slot` 只有 `block` / `entity` / `tag` / `feature` / `structure` / `template` 几种，其中 **`entity` 是兜底**——无法归类的引用都落在这里，它不代表「实体」。
 
-方块引用有四种写法，判据见 [ADR 0005](adr/0005-worldgen-reference-shapes.md)：带属性表的状态对象、无属性表的状态对象、加权表项、裸 id 列表，另有标签引用。枚举验证用 `tools/probes/probe-worldgen-refs.py`。
+方块引用有四种写法，判据见 [ADR 0003](adr/0003-worldgen-and-references.md)：带属性表的状态对象、无属性表的状态对象、加权表项、裸 id 列表，另有标签引用。枚举验证用 `tools/probes/probe-worldgen-refs.py`。
 
 `slot=tag` 不由适配器展开：标签名不是方块，展开属 IR 的语义。
+
+**方块引用来自 JSON 是常态，不是全部。** 有一类特征只在 JSON 里写参数，方块名落在实现类里：
+`feature/sculk_patch_deep_dark.json` 只有电量与扩散次数，`Blocks.SCULK` 在
+`SculkVeinBlock#attemptPlaceSculk`。这类由
+`knowledge/maps/mechanism/worldgen_code_blocks.json` 补，编译期以「该版本有特征引用这个类型」
+为门控，见 [ADR 0003](adr/0003-worldgen-and-references.md)。
+
+门控要匹配 `references` 里的 id，不是特征 JSON 的顶层 `type`：顶层往往只是容器
+（`sequence`），真正的特征类型是 `features` 数组里的元素。
 
 **空 `spawn_overrides` 不等同于缺陷**：「结构内不额外刷怪」与「结构不存在」是两个不同的结论。结构整体的刷怪配置与刷怪笼配置也相互独立，后者是单独的事实种类。
 
@@ -133,7 +142,7 @@
 
 **位置**：运行期导出的 `registries.json`，与输入包反编译源码树里的注册调用。
 
-**分母必须是注册表全集**，不是「规则里出现过的 `item:` 节点」。后者会让没有任何规则的物品从报告里彻底消失——总数偏少而不易察觉（[ADR 0012](adr/0012-item-universe-from-registry.md)）。
+**分母必须是注册表全集**，不是「规则里出现过的 `item:` 节点」。后者会让没有任何规则的物品从报告里彻底消失——总数偏少而不易察觉（[ADR 0009](adr/0009-report-artifacts.md)）。
 
 **代码侧的字面量只能作交叉校验**，不能代替注册表：常量类里含无物品的方块 ID，`Items.java` 的字段数不等于物品数（集合字段展开后才是物品数）。
 
@@ -196,7 +205,7 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 条件。能从表侧读到的只有「具体工具或附魔」（`can_shear`、`can_silk_touch`
 这类谓词）。等级要求必须从物品的 `minecraft:tool` 组件与
 `incorrect_for_*_tool` 标签推，判据见[默认组件](#默认组件)与
-[ADR 0016](adr/0016-tool-requirement-from-components.md)。
+[ADR 0007](adr/0007-transforms-and-tools.md)。
 
 **`any_of` 里的硬条件是 OR，不能当成无法判定的组合器丢掉。** 树叶与蜘蛛网的
 掉落物条目就是 `any_of(can_shear, can_silk_touch)`。丢掉它会让这些方块看起来
@@ -214,7 +223,7 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 `gameplay/` 就同时有钓鱼、猪灵以物易物、袭击后村民送礼、嗅探兽挖掘与生物被动
 产出。付款物在代码里写明的那几条必须由 idiom 出事实——取值顺序是事实优先，
 `piglin_bartering` 因此不落在目录假设上，见
-[ADR 0021](adr/0021-piglin-barter-from-code.md)。
+[ADR 0008](adr/0008-code-side-extraction.md)。
 
 判据：付款物是源码里的常量（`BARTERING_ITEM = Items.GOLD_INGOT`）就走代码抽取；
 付款物随场景变化又无常量（钓鱼的「鱼竿」、晨礼的「村庄」）才走目录假设。
@@ -234,13 +243,13 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 **`profession` 决定前提，不由等级决定**：目录第一段就是职业（`villager_trade/<profession>/…`）。
 `wandering_trader` 单独用 `assume:wandering_trader`，其余职业共用 `assume:villager_trade`——
 两者前提不同（流浪商人随机生成、不补货、不依赖村庄），见
-[ADR 0017](adr/0017-wandering-trader-assumption.md)。等级缺席（`level = null`）是目录
+[ADR 0006](adr/0006-trades.md)。等级缺席（`level = null`）是目录
 结构的副产品，不能当作商人类别的判据。
 
 **一笔交易可以要不止一样东西。** `wants` 之外还有 `additional_wants`（数据包形态），
 代码侧则是 `MerchantOffer(costA, costB, result, …)` 的两个支付位。附魔书要绿宝石 +
 书、藏宝图要绿宝石 + 指南针。只取第一个支付物会得到「绿宝石换附魔书」，把书这个
-前提抹掉（[ADR 0018](adr/0018-code-side-trade-extraction.md)）。
+前提抹掉（[ADR 0006](adr/0006-trades.md)）。
 
 **流浪商人的交易表与职业村民不在一处。** 1.18.x 是独立的
 `VillagerTrades.WANDERING_TRADER_TRADES`（`toIntMap(ImmutableMap.of(1, new ItemListing[]{…}, 2, …))`），
@@ -259,7 +268,7 @@ arg2/arg3；7 参重载显式给出，整体后移一位。判据是实参个数
 
 **位置**：运行期导出的默认组件报告。
 
-**「不具有」的表达方式是键缺席**：每个物品只列出它实际具有的组件。不能把 `!X: {}` 读成「具有 X 且值为空对象」，否则变体维度推导会多出假维度。前缀写法在某些版本不出现，适配器仍须支持——判据是键名前缀，不是版本号（[ADR 0001](adr/0001-components-fact-kind.md)）。
+**「不具有」的表达方式是键缺席**：每个物品只列出它实际具有的组件。不能把 `!X: {}` 读成「具有 X 且值为空对象」，否则变体维度推导会多出假维度。前缀写法在某些版本不出现，适配器仍须支持——判据是键名前缀，不是版本号（[ADR 0002](adr/0002-fact-and-link-kinds.md)）。
 
 **组件键可判语义**：食物、工具与武器、装备、耐久、方块转换、容器、打蜡态各有对应的组件键。每个物品的默认组件由运行期导出直接给出，无需解析反编译源码。
 
@@ -268,7 +277,7 @@ arg2/arg3；7 参重载显式给出，整体后移一位。判据是实参个数
 **工具能力直接从 `minecraft:tool` 组件读**：规则里的 `blocks` 是标签引用，
 `correct_for_drops` 为假的是「不能挖」，为真的是「能挖」。等级没有数字，
 `incorrect_for_stone_tool` 一类标签用嵌套表达递增关系。因此不建等级表，
-也不建「材质 → 物品名」清单（[ADR 0016](adr/0016-tool-requirement-from-components.md)）。
+也不建「材质 → 物品名」清单（[ADR 0007](adr/0007-transforms-and-tools.md)）。
 
 **「必须用正确工具才掉」这个标记没有数据源。** `blocks.json` 报告只有状态，
 组件只有工具自己的能力。可用的近似判据是「方块是否在 `incorrect_for_*` 里」：
@@ -281,7 +290,7 @@ arg2/arg3；7 参重载显式给出，整体后移一位。判据是实参个数
 
 **规则内部只有 `if_true` 与 `then`**，`if_true` 有三种形态：`matching_blocks`、`all_of`+`predicates`、`matching_block_tag`。字段全集用 `tools/probes/probe-block-transformer.py` 枚举。
 
-**`offset` 决定这个判据是被转换的方块还是环境前提**：带 `offset` 表示「该位置的方块是空」，属环境前提；无 `offset` 才是源方块。把 `air` 当源方块会让「泥土 → 耕地」变成「空气 → 耕地」，路径必然中断（[ADR 0002](adr/0002-block-transform-fact-kind.md)）。
+**`offset` 决定这个判据是被转换的方块还是环境前提**：带 `offset` 表示「该位置的方块是空」，属环境前提；无 `offset` 才是源方块。把 `air` 当源方块会让「泥土 → 耕地」变成「空气 → 耕地」，路径必然中断（[ADR 0007](adr/0007-transforms-and-tools.md)）。
 
 **逆变换**：有的表声明为另一张表的 inverse，方向须翻转。
 
@@ -306,7 +315,7 @@ arg2/arg3；7 参重载显式给出，整体后移一位。判据是实参个数
 
 **全大写常量直接小写**，不做驼峰转换：一律驼峰会得到逐字母下划线的名字。
 
-**各族的判据**（形态、边界、何时不留痕）见对应的 ADR：[结构生成代码里的物品](adr/0004-elytra-and-buckets.md)、[交易族](adr/0007-trades-family.md)、[绑定与例外表](adr/0008-bindings-and-exceptions.md)、[实体行为族](adr/0010-entity-behaviour.md)、[猪灵以物易物](adr/0021-piglin-barter-from-code.md)。
+**各族的判据**（形态、边界、何时不留痕）见对应的 ADR：[代码侧获取关系的提取](adr/0008-code-side-extraction.md)、[交易](adr/0006-trades.md)、[结构内容与模板绑定](adr/0004-structure-and-template-bindings.md)、[实体来源与行为产出](adr/0005-entity-sources-and-behaviour.md)、[世界生成的引用形态与代码侧补全](adr/0003-worldgen-and-references.md)、[方块变换与工具要求](adr/0007-transforms-and-tools.md)。
 
 ## 事实种类与族级不可用
 

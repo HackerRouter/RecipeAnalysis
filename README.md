@@ -115,7 +115,7 @@ ra guide       --label 26.3                     # 这个版本的适配结论
 ### 路径图
 
 可视化是**独立命令** `ra-paths`（不在 `ra` 下）：消费 `ra graph` 的产物，需要 Graphviz，不参与分析管道——缺 `dot` 的人仍能跑完整条链。建图与画图分两步，中间是一份 `graph.json`。为什么这样拆、内部表示存什么、参数与目标高亮怎么定位，见
-[ADR 0020](docs/adr/0020-graph-representation-and-rendering.md)。
+[ADR 0009](docs/adr/0009-report-artifacts.md)。
 
 ```bash
 ra graph --label 26.3                                  # 写 output/26.3/graph.json（规则 + 三值状态 + 种子）

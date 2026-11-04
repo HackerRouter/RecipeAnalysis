@@ -12,7 +12,7 @@
 
 减噪里有两层在遍历时顺手完成（tag 不展开、同类来源聚成 folder），其余
 pass 在 `noise.py`。判据与取舍见
-`docs/adr/0020-graph-representation-and-rendering.md`。
+`docs/adr/0009-report-artifacts.md`。
 """
 
 from __future__ import annotations

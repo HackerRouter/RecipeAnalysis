@@ -19,7 +19,7 @@
 
 可视化（`report/paths/` 的渲染部分）不属这条管道：它是独立命令 `ra-paths`，
 消费 `ra graph` 的产物，不参与分析链，且需要 Graphviz。分工的理由见
-[ADR 0020](adr/0020-graph-representation-and-rendering.md)。
+[ADR 0009](adr/0009-report-artifacts.md)。
 
 硬约束：
 

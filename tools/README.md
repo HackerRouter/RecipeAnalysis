@@ -19,8 +19,8 @@
 
 | 脚本 | 被谁引用 | 验证什么 |
 |---|---|---|
-| `probes/probe-worldgen-refs.py` | [`docs/shapes.md`](../docs/shapes.md)、[ADR 0005](../docs/adr/0005-worldgen-reference-shapes.md) | 世界生成里方块引用的四种写法 |
-| `probes/probe-block-transformer.py` | [`docs/shapes.md`](../docs/shapes.md)、[ADR 0002](../docs/adr/0002-block-transform-fact-kind.md) | 方块转换的字段全集 |
+| `probes/probe-worldgen-refs.py` | [`docs/shapes.md`](../docs/shapes.md)、[ADR 0003](../docs/adr/0003-worldgen-and-references.md) | 世界生成里方块引用的四种写法 |
+| `probes/probe-block-transformer.py` | [`docs/shapes.md`](../docs/shapes.md)、[ADR 0007](../docs/adr/0007-transforms-and-tools.md) | 方块转换的字段全集 |
 | `checks/check-template-nbt-id.py` | [`docs/shapes.md`](../docs/shapes.md) | 模板 `palette` 的有值项与 `nbt.id` 口径 |
 | `gaps/gap-reasons.py` | [`docs/shapes.md`](../docs/shapes.md) | 不可达项的归因分布 |
 

@@ -28,7 +28,7 @@
 
 只出 `.dot` / `.svg` / `.html`：SVG 是矢量，覆盖拖动、缩放与打印；位图是
 体积远大于它的额外副本（取舍见
-`docs/adr/0020-graph-representation-and-rendering.md`）。
+`docs/adr/0009-report-artifacts.md`）。
 
 ## HTML 为什么不缩放 SVG
 

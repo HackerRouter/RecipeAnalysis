@@ -16,7 +16,7 @@
 
 - 事实只在两处取证：反编译源码仓的提交内容，与服务端 jar 跑出的运行期导出。不引 wiki（只用于定位结构）、不凭记忆、不照搬他处结论。
 - 反编译源码按提交号取，不读工作树：工作树停在任意版本。导出走 `git archive`，不 checkout、不建工作树；`inputs/source.py` 对仓库只调用 `ls-tree` 与 `archive`。
-- 提交号由用户显式配置（[ADR 0014](docs/adr/0014-commit-explicit-config.md)）。配成不含 Java 源码树的提交会被导出阶段挡住：反编译源码根按特征文件定位，找不到即报 `InputError`。
+- 提交号由用户显式配置（[ADR 0001](docs/adr/0001-inputs-and-source-export.md)）。配成不含 Java 源码树的提交会被导出阶段挡住：反编译源码根按特征文件定位，找不到即报 `InputError`。
 - 数据格式随版本演进。适配器对未知字段必须报错，不得忽略；形状判据见 [`docs/shapes.md`](docs/shapes.md)。
 
 ## 项目红线
@@ -29,7 +29,7 @@
 ## 文档
 
 - 方案与分层放 `plan/`，定稿后迁入 `docs/`。`plan/` 允许自相矛盾，`docs/` 只写已定的事实与规定。
-- 规格放 `docs/<主题>.md`；一条设计决策一份 `docs/adr/`；数据形状的识别判据放 `docs/shapes.md`。
+- 规格放 `docs/<主题>.md`；设计决策按主题归并成一份 `docs/adr/`；数据形状的识别判据放 `docs/shapes.md`。
 - 结论按当前输入现场生成（`ra guide`），不手抄进文档；写进文档的每个数字都要有固定出处。
 - 数据契约随实现落在代码里（事实 schema、IR schema）。字段改动属契约变更，走 ADR。
 - ADR 只写「换一种做法会错在哪」与判据。取证过程、进度数字、已被代码与测试钉住的守卫不留在正文；确需保留的历史判断放 `ref/history/`。

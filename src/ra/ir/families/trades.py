@@ -17,7 +17,7 @@ item:minecraft:iron_boots  ←yield←  assume:villager_trade
 **流浪商人单列一条假设**（`assume:wandering_trader`）。它与职业村民的获取前提
 不是同一件事：职业村民需要村庄与工作站、且会补货，流浪商人随机生成、不补货、
 不依赖村庄。共用一个假设节点会让「去掉村庄还能不能拿到」这类问题无法单独问
-（[ADR 0017](../../../../docs/adr/0017-wandering-trader-assumption.md)）。
+（[ADR 0006](../../../../docs/adr/0006-trades.md)）。
 
 职业与等级不进 `body`：它们不构成新的获取前提，只说明交易从哪来，
 放 `meta` 供报告展示。

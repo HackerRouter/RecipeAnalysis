@@ -10,7 +10,7 @@
 | — | 全局起点吸进产物标签 | 本模块 |
 
 各层的判据与「换一种做法会错在哪」见
-`docs/adr/0020-graph-representation-and-rendering.md`；这里只记实现本身的
+`docs/adr/0009-report-artifacts.md`；这里只记实现本身的
 约束——尤其是 `__init__.build_path_graph` 里那几个不能调换的顺序。
 
 每一遍都在 `PathGraph` 上留计数：折叠是可读性取舍，不是删数据。

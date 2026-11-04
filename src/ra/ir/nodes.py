@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 
 from ..facts import Prov
 
-# 12 种链接种类。IR 只认这些；来历与判据见 docs/adr/0003。
+# 12 种链接种类。IR 只认这些；来历与判据见 docs/adr/0002 。
 LINK_KINDS = (
     "yield",
     "implies",
