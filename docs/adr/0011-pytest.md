@@ -39,7 +39,7 @@ unittest 的 argparse **没有注册自定义参数的钩子**（对比 pytest �
 过滤必须在 collection 之前生效。放到 `pytest_collection_modifyitems` 就晚了——那时模块
 已经导入、装饰器已经执行完。
 
-参数优先、环境变量兜底：不给 `--label` 时读 `OA_LABELS`，两者都没有则全选。保留环境变量
+参数优先、环境变量兜底：不给 `--label` 时读 `RA_LABELS`，两者都没有则全选。保留环境变量
 是因为 CI 里设环境变量比传参方便。
 
 ## 现有测试不改风格

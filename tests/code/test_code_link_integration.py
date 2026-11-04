@@ -14,7 +14,7 @@ from __future__ import annotations
 import unittest
 from collections import Counter
 
-from oa.facts import FactStore
+from ra.facts import FactStore
 
 
 def _ingest(label: str, pack) -> tuple[FactStore, object]:
@@ -215,7 +215,7 @@ class CodeLinkShapeTest(unittest.TestCase):
         这条守的是阶段二的契约：IR 只认那 12 种。自造词（曾是 `place` 与
         `drops`）会让编译层需要一张翻译表，翻译表漏一项就静默丢边。
         """
-        from oa.adapters.source.idioms.base import LINK_KINDS
+        from ra.adapters.source.idioms.base import LINK_KINDS
 
         used: dict[str, set[str]] = {}
         for label, store in self.stores.items():
@@ -388,7 +388,7 @@ class PiglinBarterTest(unittest.TestCase):
         `mechanics.table_provider_rules` 的取值顺序是「事实 > 目录约定」。
         这条规则一旦生效，`gameplay` 那条目录假设就不该再作用于这个表。
         """
-        from oa.ir.compile import compile_ir
+        from ra.ir.compile import compile_ir
         from tests import support
 
         for label in self.labels:

@@ -2,8 +2,8 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/adapters/source/idioms/base.py` 的 `LINK_KINDS`、
-  `src/oa/adapters/probe_facts.py`
+- 相关：`src/ra/adapters/source/idioms/base.py` 的 `LINK_KINDS`、
+  `src/ra/adapters/probe_facts.py`
 
 ## 背景
 

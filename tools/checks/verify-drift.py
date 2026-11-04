@@ -27,7 +27,7 @@ LEDGER.write_text(
 )
 
 result = subprocess.run(
-    [str(ROOT / ".venv" / "Scripts" / "python.exe"), "-m", "oa", "ingest", "--label", "26.3"],
+    [str(ROOT / ".venv" / "Scripts" / "python.exe"), "-m", "ra", "ingest", "--label", "26.3"],
     cwd=ROOT,
     capture_output=True,
     text=True,

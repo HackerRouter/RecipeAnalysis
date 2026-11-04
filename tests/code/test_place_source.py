@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.source.identifiers import Names, block_item_names
-from oa.adapters.source.idioms.place import PlaceSource, _call_args, _first_block_arg
+from ra.adapters.source.identifiers import Names, block_item_names
+from ra.adapters.source.idioms.place import PlaceSource, _call_args, _first_block_arg
 
 
 from tests.support import pack, why

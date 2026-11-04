@@ -1,4 +1,4 @@
-"""`python -m oa.report.paths` 的入口，等同于 `oa-paths`。"""
+"""`python -m ra.report.paths` 的入口，等同于 `ra-paths`。"""
 
 from __future__ import annotations
 

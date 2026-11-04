@@ -14,16 +14,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from oa.facts.schema import Prov
-from oa.ir.nodes import Rule, RuleSet
-from oa.report.paths.store import (
+from ra.facts.schema import Prov
+from ra.ir.nodes import Rule, RuleSet
+from ra.report.paths.store import (
     GRAPH_SCHEMA,
     GraphFormatError,
     read_graph,
     serialize_graph,
     write_graph,
 )
-from oa.solve.fixpoint import SolveResult, State
+from ra.solve.fixpoint import SolveResult, State
 
 
 def _rules() -> RuleSet:

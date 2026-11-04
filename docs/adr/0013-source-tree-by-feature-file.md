@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-01
-- 相关：`src/oa/inputs/source.py`、`src/oa/inputs/manifest.py` 的 `[source]` 段
+- 相关：`src/ra/inputs/source.py`、`src/ra/inputs/manifest.py` 的 `[source]` 段
 
 ## 背景
 

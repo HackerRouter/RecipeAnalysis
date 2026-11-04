@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-from oa.paths import cache_root, repo_root
+from ra.paths import cache_root, repo_root
 
 root = cache_root(repo_root())
 candidates = sorted(root.glob("*/reports/blocks.json"))

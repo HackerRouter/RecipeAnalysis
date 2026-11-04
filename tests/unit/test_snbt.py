@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.templates import SnbtError, parse_snbt
+from ra.adapters.templates import SnbtError, parse_snbt
 
 
 class SnbtTest(unittest.TestCase):

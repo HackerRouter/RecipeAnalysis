@@ -11,10 +11,10 @@ import sys
 sys.path.insert(0, "src")
 sys.stdout.reconfigure(encoding="utf-8")
 
-from oa.facts.schema import Fact, Prov, Status  # noqa: E402
-from oa.facts.store import FactStore  # noqa: E402
-from oa.ir.compile import compile_ir  # noqa: E402
-from oa.solve.fixpoint import solve  # noqa: E402
+from ra.facts.schema import Fact, Prov, Status  # noqa: E402
+from ra.facts.store import FactStore  # noqa: E402
+from ra.ir.compile import compile_ir  # noqa: E402
+from ra.solve.fixpoint import solve  # noqa: E402
 
 
 def load_store(label: str) -> FactStore:

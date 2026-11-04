@@ -81,7 +81,7 @@ def ensure_data(manifest: Manifest, cache_root: Path, *, force: bool = False) ->
     inner = _find_inner_jar(manifest, cache_root)
     if inner is None:
         raise InputError(
-            f"内层 jar 未解出，无法派生数据包。先跑 `oa inputs init --label {manifest.label}`"
+            f"内层 jar 未解出，无法派生数据包。先跑 `ra inputs init --label {manifest.label}`"
         )
 
     if dest.exists():

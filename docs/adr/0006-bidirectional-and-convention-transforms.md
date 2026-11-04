@@ -3,7 +3,7 @@
 - 状态：已采纳
 - 日期：2026-10-31
 - 相关：`knowledge/maps/mechanism/transform_inverse.json`、
-  `transform_conventions.json`、`src/oa/ir/bridges/mechanics.py`
+  `transform_conventions.json`、`src/ra/ir/bridges/mechanics.py`
 
 ## 背景
 
@@ -68,5 +68,5 @@ block:minecraft:weathered_copper  ←transmutes←  block:minecraft:oxidized_cop
 - 26.3 实测：`water_solidify` 命中 16 / 配对 16 / 失配 0（`_powder` 在方块注册表里
   只有混凝土粉末）；`coral_death` 命中 20 / 配对 20 / 过滤 1 / 失配 0
 - `transforms` 规则量翻倍（多出的是反方向规则）；铜族与混凝土族全部转为可达
-  （具体数量由 `oa guide` 给出）
+  （具体数量由 `ra guide` 给出）
 - `bridge/convention` 成为独立家族，`convention_transforms` 覆盖率进 `coverage.json`

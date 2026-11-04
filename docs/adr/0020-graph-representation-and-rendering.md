@@ -2,8 +2,8 @@
 
 - 状态：已采纳
 - 日期：2026-11-03
-- 相关：`src/oa/report/paths/`、`src/oa/cli.py`（`oa graph`）、
-  `src/oa/report/paths/cli.py`（`oa-paths`）
+- 相关：`src/ra/report/paths/`、`src/ra/cli.py`（`ra graph`）、
+  `src/ra/report/paths/cli.py`（`ra-paths`）
 
 ## 背景
 
@@ -22,19 +22,19 @@
 **两条命令分属两个入口，中间是一份文件。**
 
 ```bash
-oa graph --label 26.3                                    # 产物：output/26.3/graph.json
-oa-paths --graph output/26.3/graph.json <物品 id>         # 视图：.dot / .svg / .html
+ra graph --label 26.3                                    # 产物：output/26.3/graph.json
+ra-paths --graph output/26.3/graph.json <物品 id>         # 视图：.dot / .svg / .html
 ```
 
-`oa graph` 留在 `oa` 下，因为它是管道产物（与 `oa run` 同级，同源同读入）。
-`oa-paths` 是**独立命令**，理由两条：
+`ra graph` 留在 `ra` 下，因为它是管道产物（与 `ra run` 同级，同源同读入）。
+`ra-paths` 是**独立命令**，理由两条：
 
 1. **职责不同**。主管道每一步都是下一个的输入；可视化是产物的消费者，
    不产出任何下游要用的东西。
 2. **依赖不同**。主管道不需要 Graphviz。独立之后，缺 `dot` 的人仍能跑完
    整条分析链，只在真要看图时才会收到安装提示。
 
-`oa-paths` 只读内部表示文件，不碰 `inputs/`、不重算规则与不动点。
+`ra-paths` 只读内部表示文件，不碰 `inputs/`、不重算规则与不动点。
 
 ### 内部表示存什么
 

@@ -13,9 +13,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from oa.adapters.loot import condition_type, normalize_conditions, normalize_functions, walk_entry
-from oa.adapters.recipes import parse_ingredient, parse_result
-from oa.probe.shapes import LOOT_TABLE, RECIPE, TAG, TYPED_ONLY, UNKNOWN, classify, resolve_dominant
+from ra.adapters.loot import condition_type, normalize_conditions, normalize_functions, walk_entry
+from ra.adapters.recipes import parse_ingredient, parse_result
+from ra.probe.shapes import LOOT_TABLE, RECIPE, TAG, TYPED_ONLY, UNKNOWN, classify, resolve_dominant
 
 
 class ShapeTest(unittest.TestCase):
@@ -84,8 +84,8 @@ class IngredientSlotTest(unittest.TestCase):
     """
 
     def _fact(self, doc: dict):
-        from oa.adapters.recipes import RecipeAdapter
-        from oa.facts import FactStore
+        from ra.adapters.recipes import RecipeAdapter
+        from ra.facts import FactStore
 
         with tempfile.TemporaryDirectory() as tmp:
             pack = Path(tmp)
@@ -187,8 +187,8 @@ class SpecialSlotTest(unittest.TestCase):
     """
 
     def _fact(self, doc: dict):
-        from oa.adapters.recipes import RecipeAdapter
-        from oa.facts import FactStore
+        from ra.adapters.recipes import RecipeAdapter
+        from ra.facts import FactStore
 
         with tempfile.TemporaryDirectory() as tmp:
             pack = Path(tmp)

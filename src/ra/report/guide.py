@@ -239,7 +239,7 @@ def _section_unresolved(profile: dict) -> list[str]:
     for item in unresolved:
         lines.append(f"- {item}")
     lines.append("")
-    lines.append("存在未决项时 `oa probe --strict` 与 `oa ingest` 返回非零。")
+    lines.append("存在未决项时 `ra probe --strict` 与 `ra ingest` 返回非零。")
     lines.append("")
     return lines
 
@@ -302,10 +302,10 @@ def _section_products(facts_summary: dict | None,
 
 def _section_commands(label: str) -> list[str]:
     lines = ["## 复算", "", "```bash",
-             f"oa probe   --label {label}",
-             f"oa ingest  --label {label}",
-             f"oa run     --label {label}",
-             f"oa guide   --label {label}",
+             f"ra probe   --label {label}",
+             f"ra ingest  --label {label}",
+             f"ra run     --label {label}",
+             f"ra guide   --label {label}",
              "```", ""]
     lines.append("产物的字段与统计口径见 `output/<label>/` 下的同名 JSON。")
     lines.append("")
@@ -325,7 +325,7 @@ def render_guide(*, profile: dict,
     lines = [
         f"# 适配指南：{label}",
         "",
-        "本文件由 `oa guide` 从 `output/<label>/` 的产物生成，不入版本库。",
+        "本文件由 `ra guide` 从 `output/<label>/` 的产物生成，不入版本库。",
         "它记录本次输入的实测结论——哪些位置有数据、各自是什么形状、哪些探测到了但不能用。",
         f"识别方法与不可做的事属于跨版本判据，写在 [`{SHAPES_DOC}`](../../{SHAPES_DOC})，本文按节指向那里。",
         "",

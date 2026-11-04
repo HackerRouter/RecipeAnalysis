@@ -17,8 +17,8 @@
 | `solve/` | 规则 + 种子 | 三值状态、证明、归因 | 任何游戏知识 |
 | `report/` | 求解结果 | `output/` 下的报告与关系图内部表示 | 读 `inputs/` |
 
-可视化（`report/paths/` 的渲染部分）不属这条管道：它是独立命令 `oa-paths`，
-消费 `oa graph` 的产物，不参与分析链，且需要 Graphviz。分工的理由见
+可视化（`report/paths/` 的渲染部分）不属这条管道：它是独立命令 `ra-paths`，
+消费 `ra graph` 的产物，不参与分析链，且需要 Graphviz。分工的理由见
 [ADR 0020](adr/0020-graph-representation-and-rendering.md)。
 
 硬约束：
@@ -32,7 +32,7 @@
 
 | 目标 | 落点 | 验证 |
 |---|---|---|
-| 加一个版本 | 放输入包到 `inputs/<label>/`，`oa inputs init` | `pytest --label <label>`；`ingest/test_probe_integration.py` 的 `EXPECTED` 要登记该版本 |
+| 加一个版本 | 放输入包到 `inputs/<label>/`，`ra inputs init` | `pytest --label <label>`；`ingest/test_probe_integration.py` 的 `EXPECTED` 要登记该版本 |
 | 加一种数据包来源 | `probe/` 认目录 + `adapters/` 加解析器 | 台账里每个新文件都有行；`facts-summary.json` 计数对得上 |
 | 加一种知识 | `knowledge/maps/<category>/<名>.json`，在 `ir/knowledge.py` 读取 | 条目带 `basis`；`knowledge/README.md` 记字段 |
 | 加一条机制桥接 | `ir/bridges/` 对应的模块 | 规则数与新增条目数对得上 |
@@ -43,7 +43,7 @@
 | 改路径图的建图或预算 | `report/paths/graph.py` | 同上；剪枝必须有标注，不得静默丢弃 |
 | 改路径图的减噪 pass（折叠、压缩、吸收、桶化） | `report/paths/noise.py` | 同上；每个 pass 的计数要能被 `summary.fold_notes` 读到 |
 | 改内部表示格式 | `report/paths/store.py` 的 `GRAPH_SCHEMA` +1 | `tests/unit/test_paths_store.py`；旧文件将不可读，属契约变更 |
-| 改可视化命令行参数 | `report/paths/cli.py`（独立命令 `oa-paths`） | 参数归入减噪 / 展开 / 预算三类之一 |
+| 改可视化命令行参数 | `report/paths/cli.py`（独立命令 `ra-paths`） | 参数归入减噪 / 展开 / 预算三类之一 |
 
 ### 代码侧提取的留痕层次
 
@@ -76,4 +76,4 @@
 
 - 大段输出先写入 UTF-8 文件再读取。终端中截断的中间部分不可信，且 Windows 代码页会使中文输出乱码，判读以文件原文为准。
 - `git` 子命令不接受 PowerShell 的通用参数，过滤用管道完成，不用 PowerShell 的开关。
-- 用 `OA_LABELS` 或 `--label` 限定版本时，未选中的版本会自动跳过，看跳过理由用 `pytest -rs`。
+- 用 `RA_LABELS` 或 `--label` 限定版本时，未选中的版本会自动跳过，看跳过理由用 `pytest -rs`。

@@ -2,8 +2,8 @@
 
 - 状态：已采纳
 - 日期：2026-11-02
-- 相关：`src/oa/ir/bridges/harvest.py`、`src/oa/ir/families/loot.py`、
-  `src/oa/ir/compile.py`、`knowledge/maps/vocabulary/condition_kinds.json`
+- 相关：`src/ra/ir/bridges/harvest.py`、`src/ra/ir/families/loot.py`、
+  `src/ra/ir/compile.py`、`knowledge/maps/vocabulary/condition_kinds.json`
 
 ## 背景
 

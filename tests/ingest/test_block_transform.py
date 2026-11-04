@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.block_transform import (
+from ra.adapters.block_transform import (
     _ShapeError,
     _resolve_then,
     _walk_predicate,
 )
-from oa.probe.shapes import BLOCK_TRANSFORM, classify
+from ra.probe.shapes import BLOCK_TRANSFORM, classify
 
 
 from tests.support import pack, why

@@ -1,10 +1,10 @@
-"""[unit] `oa guide` 的渲染：输入取自 profile 与产物 JSON，不读文件。"""
+"""[unit] `ra guide` 的渲染：输入取自 profile 与产物 JSON，不读文件。"""
 
 from __future__ import annotations
 
 import unittest
 
-from oa.report.guide import render_guide
+from ra.report.guide import render_guide
 
 
 def _profile(**overrides) -> dict:

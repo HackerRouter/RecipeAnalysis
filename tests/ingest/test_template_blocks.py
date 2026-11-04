@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.templates import parse_snbt
-from oa.inputs.structures import locate_template_dir
+from ra.adapters.templates import parse_snbt
+from ra.inputs.structures import locate_template_dir
 
 
 def _pack(label: str):

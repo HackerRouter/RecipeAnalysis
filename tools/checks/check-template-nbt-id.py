@@ -14,9 +14,9 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-from oa.adapters.templates import parse_snbt
-from oa.inputs import ensure_structures, load_manifest
-from oa.paths import cache_root, input_pack, repo_root
+from ra.adapters.templates import parse_snbt
+from ra.inputs import ensure_structures, load_manifest
+from ra.paths import cache_root, input_pack, repo_root
 
 
 def resolve_root(label: str | None, explicit: str | None) -> Path:

@@ -7,15 +7,15 @@
   而 `state` 不在固定集合内，整版直接抛 `NodeError`；
   26.3 因为走数据包表根本没走到那条路径，所以只有两版都跑才测得出来。
 - **无未知**：红线 3 要求「未知全部有台账」，未知数必须为 0。
-- **不复述结论**：可达率只断言下界，具体值由 `oa guide` 从产物读出
+- **不复述结论**：可达率只断言下界，具体值由 `ra guide` 从产物读出
 """
 
 from __future__ import annotations
 
 import unittest
 
-from oa.ir.compile import compile_ir
-from oa.solve.fixpoint import State, solve
+from ra.ir.compile import compile_ir
+from ra.solve.fixpoint import State, solve
 
 from .. import support
 
@@ -27,12 +27,12 @@ def _compile(label: str):
 
 
 def _universe(label: str) -> list[str]:
-    """物品全集：取自 `registries.json`，与 `oa run` 同一条路径。
+    """物品全集：取自 `registries.json`，与 `ra run` 同一条路径。
 
     **不能用规则里出现的节点**：没有规则的物品在规则图上不存在，
     拿它当全集会让这些物品从报告里消失。
     """
-    from oa.facts import FactStore
+    from ra.facts import FactStore
 
     store = support.store(label)
     for fact in store.of_kind("registry"):
@@ -42,8 +42,8 @@ def _universe(label: str) -> list[str]:
 
 
 def _exceptions(universe: list[str]) -> dict:
-    """例外表：与 `oa run` 同一条路径加载（含 `_patterns` 展开），避免测试与生产分叉。"""
-    from oa.ir.knowledge import load_exceptions
+    """例外表：与 `ra run` 同一条路径加载（含 `_patterns` 展开），避免测试与生产分叉。"""
+    from ra.ir.knowledge import load_exceptions
 
     return load_exceptions(support.ROOT, universe)
 
@@ -58,7 +58,7 @@ class _CompileBase:
 
     @classmethod
     def setUpClass(cls) -> None:
-        from oa.report import build_reachability
+        from ra.report import build_reachability
 
         cls.rules, cls.report = _compile(cls.label)
         cls.result = solve(cls.rules, cls.report.seeds)
@@ -73,7 +73,7 @@ class _CompileBase:
 
     def test_every_rule_node_is_wellformed(self) -> None:
         """head / body / soft 全部要能 `split_node`。构造时已校验，这里再核一次。"""
-        from oa.ir.nodes import split_node
+        from ra.ir.nodes import split_node
 
         for rule in self.rules.rules:
             split_node(rule.head)
@@ -159,7 +159,7 @@ class Compile263Test(_CompileBase, unittest.TestCase):
 
     def test_unobtainable_exceptions_are_reachable_in_report(self) -> None:
         """例外表里的物品应当归因为 unobtainable，而不是笼统的 no_rule。"""
-        from oa.solve.attribute import UNOBTAINABLE
+        from ra.solve.attribute import UNOBTAINABLE
 
         reasons = {a.reason for a in self.attributions.values()}
         self.assertIn(UNOBTAINABLE, reasons)
@@ -173,7 +173,7 @@ class Compile263Test(_CompileBase, unittest.TestCase):
 
         后者会让没有规则的物品从报告里消失，总数上少几个而看不出来。
         """
-        from oa.facts import FactStore
+        from ra.facts import FactStore
 
         store = support.store(self.label)
         registry_count = 0
@@ -190,7 +190,7 @@ class Compile263Test(_CompileBase, unittest.TestCase):
         只钉存在性（各一条），不钉谁先谁后——排序按 (body 长度, rule.id)，
         加规则会让顺序变，那是允许的。
         """
-        from oa.solve.proof import enumerate_proofs
+        from ra.solve.proof import enumerate_proofs
 
         by_head = {head: self.rules.of_head(head) for head in self.rules.heads()}
         steps = enumerate_proofs(by_head, self.result, "item:minecraft:cod_bucket")
@@ -199,8 +199,8 @@ class Compile263Test(_CompileBase, unittest.TestCase):
         self.assertIn("trades", families)
 
     def test_why_resolves_bare_names(self) -> None:
-        """`oa why` 接受裸名，这是命令行可用性的最低要求。"""
-        from oa.cli import _resolve_node
+        """`ra why` 接受裸名，这是命令行可用性的最低要求。"""
+        from ra.cli import _resolve_node
 
         self.assertEqual(_resolve_node("cod_bucket"), "item:minecraft:cod_bucket")
         self.assertEqual(_resolve_node("minecraft:cod_bucket"), "item:minecraft:cod_bucket")
@@ -223,13 +223,13 @@ class SolveTest(unittest.TestCase):
     """求解器本身的单元测试，不依赖输入包。"""
 
     def test_no_rule_and_not_seeded_is_false_not_unknown(self) -> None:
-        from oa.ir.nodes import RuleSet
+        from ra.ir.nodes import RuleSet
 
         result = solve(RuleSet(), ["assume:x"])
         self.assertIs(result.of("item:minecraft:air"), State.FALSE)
 
     def test_or_is_expressed_by_multiple_rules(self) -> None:
-        from oa.ir.nodes import Rule, RuleSet
+        from ra.ir.nodes import Rule, RuleSet
 
         rule_set = RuleSet()
         rule_set.extend(
@@ -242,7 +242,7 @@ class SolveTest(unittest.TestCase):
         self.assertIs(result.of("item:minecraft:x"), State.TRUE)
 
     def test_and_requires_every_body_member(self) -> None:
-        from oa.ir.nodes import Rule, RuleSet
+        from ra.ir.nodes import Rule, RuleSet
 
         rule_set = RuleSet()
         rule_set.extend(
@@ -254,7 +254,7 @@ class SolveTest(unittest.TestCase):
         self.assertIs(result.of("item:minecraft:x"), State.FALSE)
 
     def test_cycle_without_entry_stays_false(self) -> None:
-        from oa.ir.nodes import Rule, RuleSet
+        from ra.ir.nodes import Rule, RuleSet
 
         rule_set = RuleSet()
         rule_set.extend(

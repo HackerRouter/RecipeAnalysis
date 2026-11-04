@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.components import split_components
-from oa.adapters.trades import parse_item_stack
-from oa.probe.shapes import (
+from ra.adapters.components import split_components
+from ra.adapters.trades import parse_item_stack
+from ra.probe.shapes import (
     LOOT_TABLE,
     TAG,
     TRADE_OFFER,

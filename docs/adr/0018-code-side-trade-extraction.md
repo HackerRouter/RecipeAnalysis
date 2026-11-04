@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-03
-- 相关：`src/oa/adapters/source/idioms/trades.py`、`docs/adr/0007-trades-family.md`、
+- 相关：`src/ra/adapters/source/idioms/trades.py`、`docs/adr/0007-trades-family.md`、
   `docs/adr/0017-wandering-trader-assumption.md`、`docs/shapes.md`
 
 ## 背景

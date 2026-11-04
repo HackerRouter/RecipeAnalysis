@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/adapters/worldgen.py`、`src/oa/ir/families/worldgen.py`
+- 相关：`src/ra/adapters/worldgen.py`、`src/ra/ir/families/worldgen.py`
 
 ## 背景
 

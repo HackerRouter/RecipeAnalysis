@@ -8,8 +8,8 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-from oa.inputs import ensure_reports, load_manifest
-from oa.paths import cache_root, input_pack, repo_root
+from ra.inputs import ensure_reports, load_manifest
+from ra.paths import cache_root, input_pack, repo_root
 
 ROOT = repo_root()
 OUT = Path("output/worldgen-dual.txt")

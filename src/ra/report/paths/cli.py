@@ -1,6 +1,6 @@
-"""`oa-paths` 的命令行入口：读一份内部表示，出一份视图。
+"""`ra-paths` 的命令行入口：读一份内部表示，出一份视图。
 
-为什么可视化是独立命令、与 `oa graph` 怎么分工、依赖上的取舍，见
+为什么可视化是独立命令、与 `ra graph` 怎么分工、依赖上的取舍，见
 `docs/adr/0020-graph-representation-and-rendering.md`。本模块只做参数解析
 与「读 `graph.json` → 建图 → 渲染」的编排，不碰 `inputs/`，不重算规则与不动点。
 """
@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from ...errors import OaError
+from ...errors import RaError
 from ...ir.nodes import SORTS
 from ...paths import repo_root
 from . import PathBuildError, PathOptions, build_path_graph, resolve_node
@@ -24,7 +24,7 @@ from .summary import fold_notes
 def cmd_render(args: argparse.Namespace) -> int:
     """从内部表示里取一个物品的来源，画成 `.dot/.svg/.html`。
 
-    与 `oa why` 的分工：`why` 出树（一个节点只占一个位置，AND 组会被拆到不同
+    与 `ra why` 的分工：`why` 出树（一个节点只占一个位置，AND 组会被拆到不同
     层级），这里出图（AND 汇进菱形、OR 并列、条件分离）。
     """
     if not graphviz_available():
@@ -67,7 +67,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         print(f"{value} 不是 TRUE（{state.value}），没有可画的来源", file=sys.stderr)
         if state.name == "FALSE":
             print(
-                f"用 `oa why --label {header.label} {args.node}` 看归因",
+                f"用 `ra why --label {header.label} {args.node}` 看归因",
                 file=sys.stderr,
             )
         return 1
@@ -149,13 +149,13 @@ def _add_path_options(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="oa-paths",
-        description="把物品的来源画成图（Graphviz）。读 `oa graph` 写的内部表示，不碰输入包。",
+        prog="ra-paths",
+        description="把物品的来源画成图（Graphviz）。读 `ra graph` 写的内部表示，不碰输入包。",
     )
     parser.add_argument(
         "--graph",
         required=True,
-        help="内部表示文件（`oa graph` 的产物，如 output/<label>/graph.json）；"
+        help="内部表示文件（`ra graph` 的产物，如 output/<label>/graph.json）；"
         "相对路径按仓库根解析",
     )
     parser.add_argument("node", help="物品 id，如 minecraft:cod_bucket 或 item:minecraft:planks")
@@ -169,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except OaError as exc:
+    except RaError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
 

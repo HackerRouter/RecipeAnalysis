@@ -36,7 +36,7 @@ class FactStore:
 
     @classmethod
     def read(cls, facts_dir: Path, label: str = "") -> "FactStore":
-        """从 `output/<label>/facts/*.jsonl` 反序列化，供复盘与 `oa why`。
+        """从 `output/<label>/facts/*.jsonl` 反序列化，供复盘与 `ra why`。
 
         为什么不重跑适配器：`run` 已经把事实落盘，重算一次 ingest 要扫七千个
         Java 文件。复盘要的是「输入没变时结论可重算」，而事实就是那层的输入。

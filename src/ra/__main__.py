@@ -1,4 +1,4 @@
-"""`python -m oa` 入口。"""
+"""`python -m ra` 入口。"""
 
 from .cli import main
 

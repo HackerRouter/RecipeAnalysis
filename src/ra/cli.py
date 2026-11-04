@@ -1,4 +1,4 @@
-"""`oa` 命令行入口。
+"""`ra` 命令行入口。
 
 当前实现 `inputs init` 与 `probe`。`ingest / run / why / diff` 随后接。
 """
@@ -19,7 +19,7 @@ from .adapters import (
     skip_inert_registries,
     sweep_assets,
 )
-from .errors import OaError
+from .errors import RaError
 from .facts import FactStore
 from .inputs import (
     ensure_data,
@@ -74,7 +74,7 @@ def cmd_inputs_init(args: argparse.Namespace) -> int:
 
     pack_dir = input_pack(root, args.label)
     if not pack_dir.is_dir():
-        raise OaError(f"输入包目录不存在：{pack_dir}")
+        raise RaError(f"输入包目录不存在：{pack_dir}")
 
     manifest = load_manifest(pack_dir)
     if not manifest.java_home:
@@ -232,7 +232,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     if not args.allow_unknown:
         try:
             require_complete(unaccounted)
-        except OaError as exc:
+        except RaError as exc:
             print(f"错误：{exc}", file=sys.stderr)
             print("加 --allow-unknown 可先产出报告", file=sys.stderr)
             return 1
@@ -444,7 +444,7 @@ def cmd_why(args: argparse.Namespace) -> int:
     out_dir = output_dir(root, manifest.label)
     facts_dir = out_dir / "facts"
     if not facts_dir.is_dir():
-        print(f"错误：{facts_dir} 不存在，先跑 `oa run --label {manifest.label}`", file=sys.stderr)
+        print(f"错误：{facts_dir} 不存在，先跑 `ra run --label {manifest.label}`", file=sys.stderr)
         return 1
 
     store = FactStore.read(facts_dir, label=manifest.label)
@@ -518,9 +518,9 @@ def _read_json_optional(path: Path) -> dict | None:
 
 
 def cmd_graph(args: argparse.Namespace) -> int:
-    """把全量关系图落成内部表示文件，供 `oa-paths` 取路线。
+    """把全量关系图落成内部表示文件，供 `ra-paths` 取路线。
 
-    与 `oa run` 共用同一套读入（事实 → 规则 → 不动点），但产物不同：
+    与 `ra run` 共用同一套读入（事实 → 规则 → 不动点），但产物不同：
     `run` 出可达性报告，这里出**图本身**（规则 + 三值状态 + 种子）。
 
     为什么要分出来：建图与画图的变化节奏不同。内部表示只在事实或 IR 变化时变，
@@ -536,7 +536,7 @@ def cmd_graph(args: argparse.Namespace) -> int:
     out_dir = output_dir(root, manifest.label)
     facts_dir = out_dir / "facts"
     if not facts_dir.is_dir():
-        print(f"错误：{facts_dir} 不存在，先跑 `oa run --label {manifest.label}`", file=sys.stderr)
+        print(f"错误：{facts_dir} 不存在，先跑 `ra run --label {manifest.label}`", file=sys.stderr)
         return 1
 
     store = FactStore.read(facts_dir, label=manifest.label)
@@ -568,7 +568,7 @@ def cmd_graph(args: argparse.Namespace) -> int:
     print(f"播种   {len(graph.seeds)} 个节点")
     print(f"体积   {size / 1024 / 1024:.2f} MB（graph_schema {graph.header.graph_schema}）")
     print(f" -> {path}")
-    print(f"\n从这个文件出图：oa-paths --graph {path} <物品 id>")
+    print(f"\n从这个文件出图：ra-paths --graph {path} <物品 id>")
     return 0
 
 
@@ -593,7 +593,7 @@ def cmd_guide(args: argparse.Namespace) -> int:
 
     profile = _read_json_optional(out_dir / "profile.json")
     if profile is None:
-        print(f"错误：{out_dir / 'profile.json'} 不存在，先跑 `oa probe --label {manifest.label}`",
+        print(f"错误：{out_dir / 'profile.json'} 不存在，先跑 `ra probe --label {manifest.label}`",
               file=sys.stderr)
         return 1
 
@@ -644,7 +644,7 @@ def _print_step(step, indent: int) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="oa", description="Minecraft 原版物品获取路径分析")
+    parser = argparse.ArgumentParser(prog="ra", description="Minecraft 原版物品获取路径分析")
     sub = parser.add_subparsers(dest="command", required=True)
 
     inputs = sub.add_parser("inputs", help="输入包装配")
@@ -690,7 +690,7 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--stdout", action="store_true", help="同时打印到终端")
     guide.set_defaults(func=cmd_guide)
 
-    graph = sub.add_parser("graph", help="把全量关系图落成内部表示文件（供 oa-paths 出图）")
+    graph = sub.add_parser("graph", help="把全量关系图落成内部表示文件（供 ra-paths 出图）")
     graph.add_argument("--label", required=True)
     graph.set_defaults(func=cmd_graph)
 
@@ -703,7 +703,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except OaError as exc:
+    except RaError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
 

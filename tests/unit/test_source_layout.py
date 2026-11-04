@@ -18,8 +18,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from oa.errors import InputError
-from oa.inputs.source import FEATURE_FILES, find_source_path, find_source_paths
+from ra.errors import InputError
+from ra.inputs.source import FEATURE_FILES, find_source_path, find_source_paths
 
 WORLD_VERSION = "package net.minecraft;\npublic interface WorldVersion {}\n"
 

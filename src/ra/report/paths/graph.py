@@ -242,7 +242,7 @@ class Builder:
     # ---- 规则选择 ----
 
     def live_rules(self, head: str) -> list[Rule]:
-        """body 全为 TRUE 的规则，按 (body 长度, id) 排序——与 `oa why` 同序。"""
+        """body 全为 TRUE 的规则，按 (body 长度, id) 排序——与 `ra why` 同序。"""
         live = [
             rule
             for rule in self.rules_by_head.get(head, [])

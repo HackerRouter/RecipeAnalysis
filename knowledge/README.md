@@ -8,8 +8,8 @@
 
 | 事实来源 | 落点 |
 |---|---|
-| 数据包 JSON、服务端 jar 的运行期导出 | `src/oa/adapters/` |
-| 反编译源码中形态固定的写法 | `src/oa/adapters/source/idioms/` |
+| 数据包 JSON、服务端 jar 的运行期导出 | `src/ra/adapters/` |
+| 反编译源码中形态固定的写法 | `src/ra/adapters/source/idioms/` |
 | 以上均不可得 | `knowledge/` |
 
 进入本目录的是只写在行为代码里、且各条写法互不相同的机制（掉方块、放入物品实体、
@@ -62,11 +62,11 @@ knowledge/
 
 ## 读取方式
 
-`src/oa/ir/compile.py` 是唯一读取方，分类目录名以常量 `VOCABULARY` / `MECHANISM` /
+`src/ra/ir/compile.py` 是唯一读取方，分类目录名以常量 `VOCABULARY` / `MECHANISM` /
 `EXCEPTIONS` 出现。`assumptions.toml` 与 `maps/` 全部在 `compile_ir` 开头一次性读入，
-各编译阶段只接收数据。例外表由 `src/oa/cli.py` 读取，因其属于归因层而非规则层。
+各编译阶段只接收数据。例外表由 `src/ra/cli.py` 读取，因其属于归因层而非规则层。
 
-路径由 `src/oa/paths.py` 的 `knowledge_*` 系列给出，不在各处拼字符串。
+路径由 `src/ra/paths.py` 的 `knowledge_*` 系列给出，不在各处拼字符串。
 
 `solve/` 与 `report/` 不读取文件。这些目录出现文件访问即为分层失效。
 

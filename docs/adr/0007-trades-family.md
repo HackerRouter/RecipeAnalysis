@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/ir/families/trades.py`、`src/oa/ir/bridges/vocabulary.py`、
+- 相关：`src/ra/ir/families/trades.py`、`src/ra/ir/bridges/vocabulary.py`、
   `knowledge/maps/vocabulary/tool_class.json`
 
 ## 背景

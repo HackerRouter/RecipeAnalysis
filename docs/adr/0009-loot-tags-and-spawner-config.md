@@ -2,8 +2,8 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/ir/families/loot.py`、`src/oa/ir/tags.py`、
-  `src/oa/adapters/spawners.py`
+- 相关：`src/ra/ir/families/loot.py`、`src/ra/ir/tags.py`、
+  `src/ra/adapters/spawners.py`
 
 ## 背景
 

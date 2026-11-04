@@ -3,17 +3,17 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "obtainable-analysis"
+name = "recipe-analysis"
 version = "0.1.0"
 description = "Minecraft 原版物品获取路径分析"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
-oa = "oa.cli:main"
-# 可视化独立成命令：它消费 oa 的产物（graph.json），不参与分析管道，
-# 且需要 Graphviz。挂在 `oa` 下会让缺 dot 的人也跑不了不相关的子命令。
-oa-paths = "oa.report.paths.cli:main"
+ra = "ra.cli:main"
+# 可视化独立成命令：它消费 ra 的产物（graph.json），不参与分析管道，
+# 且需要 Graphviz。挂在 `ra` 下会让缺 dot 的人也跑不了不相关的子命令。
+ra-paths = "ra.report.paths.cli:main"
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 

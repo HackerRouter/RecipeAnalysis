@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-10-30
-- 相关：`src/oa/facts/schema.py` 的 `KINDS`、`src/oa/adapters/components.py`
+- 相关：`src/ra/facts/schema.py` 的 `KINDS`、`src/ra/adapters/components.py`
 
 ## 背景
 

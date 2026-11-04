@@ -21,7 +21,7 @@ pip install -e ".[dev]"
 | 单个类 | `pytest tests/unit/test_syntax.py -v` |
 | 看跳过理由 | `pytest -rs` |
 
-`--label` 也可用环境变量 `OA_LABELS` 代替（参数优先）。环境变量的设置与清除
+`--label` 也可用环境变量 `RA_LABELS` 代替（参数优先）。环境变量的设置与清除
 看平台（`export` / `$env:` / `set`），它只在当前 shell 会话内有效。
 
 只装了运行时依赖时，`python -m unittest discover -s tests -t .` 仍可兜底，
@@ -54,7 +54,7 @@ pip install -e ".[dev]"
 | 跨版本交叉对比 | `code/test_code_link_integration.py` 的 `CrossVersionShearEquivalenceTest` | 必须两个同时在 |
 | 与版本无关 | `unit/` 全部 | 零 |
 
-`--label` 是逗号分隔的版本标签，不给则读 `OA_LABELS`，都没有则全选。未选中的版本，`support.pack()` 返回 None，各测试类的 `skipUnless` 自动命中。
+`--label` 是逗号分隔的版本标签，不给则读 `RA_LABELS`，都没有则全选。未选中的版本，`support.pack()` 返回 None，各测试类的 `skipUnless` 自动命中。
 
 过滤在 `pytest_configure` 里生效，早于 collection。这是必需的：各模块的 `skipUnless(_pack("26.3"), ...)` 在**导入时**求值，放到 `pytest_collection_modifyitems` 就晚了。
 

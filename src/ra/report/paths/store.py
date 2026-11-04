@@ -33,7 +33,7 @@ from ...solve.fixpoint import SolveResult, State
 # 内部表示的格式版本。字段变化即 +1。
 GRAPH_SCHEMA = 1
 
-# 文件名固定：一个版本一份，随 `oa graph` 覆盖
+# 文件名固定：一个版本一份，随 `ra graph` 覆盖
 GRAPH_FILE = "graph.json"
 
 
@@ -208,7 +208,7 @@ def read_graph(path: Path) -> tuple[RuleSet, SolveResult, GraphHeader]:
     if version != GRAPH_SCHEMA:
         raise GraphFormatError(
             f"{path} 的 graph_schema={version!r}，本程序只认 {GRAPH_SCHEMA}。"
-            "重新跑 `oa graph --label <label>` 生成。"
+            "重新跑 `ra graph --label <label>` 生成。"
         )
 
     for key in ("strings", "rules", "states", "ir_schema", "label"):

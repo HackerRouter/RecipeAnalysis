@@ -11,20 +11,20 @@ from __future__ import annotations
 
 import unittest
 
-from oa.facts import Fact, Prov
-from oa.ir.bridges import (
+from ra.facts import Fact, Prov
+from ra.ir.bridges import (
     convention_transform_rules,
     entity_behaviour_rules,
     entity_source_rules,
     tool_rules,
 )
-from oa.ir.families.bindings import compile_bindings
-from oa.ir.families.trades import compile_trades
-from oa.ir.families.transforms import compile_transforms
-from oa.ir.families.worldgen import compile_worldgen
-from oa.ir.tags import TagMembers
-from oa.solve.attribute import NO_RULE, UNOBTAINABLE, attribute
-from oa.solve.fixpoint import solve
+from ra.ir.families.bindings import compile_bindings
+from ra.ir.families.trades import compile_trades
+from ra.ir.families.transforms import compile_transforms
+from ra.ir.families.worldgen import compile_worldgen
+from ra.ir.tags import TagMembers
+from ra.solve.attribute import NO_RULE, UNOBTAINABLE, attribute
+from ra.solve.fixpoint import solve
 
 
 def _fact(kind: str, payload: dict) -> Fact:
@@ -556,7 +556,7 @@ class ExceptionAttributionTest(unittest.TestCase):
     """例外表把 `no_rule` 拆成「确定拿不到」与「机制尚未提取」。"""
 
     def _result(self):
-        from oa.ir.nodes import RuleSet
+        from ra.ir.nodes import RuleSet
 
         return RuleSet(), solve(RuleSet(), [])
 

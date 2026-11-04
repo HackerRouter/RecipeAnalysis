@@ -122,7 +122,7 @@ def build_reachability(
 def _proof_chain(value: str, result: SolveResult, limit: int = 24) -> list[dict]:
     """沿证明树展开最小深度的一条链。
 
-    只作为人读的摘要，不保证覆盖所有前置——完整证明由 `oa why` 按需展开。
+    只作为人读的摘要，不保证覆盖所有前置——完整证明由 `ra why` 按需展开。
     """
     chain: list[dict] = []
     frontier = [value]

@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.source.index import ANCHORS, build_index
-from oa.adapters.source.javatext import (
+from ra.adapters.source.index import ANCHORS, build_index
+from ra.adapters.source.javatext import (
     find_constructor_calls,
     find_method_body,
     java_ident,
     split_args,
     strip_comments,
 )
-from oa.adapters.source.lootconstants import LootConstants
+from ra.adapters.source.lootconstants import LootConstants
 
 BUILTIN_263 = """
 package net.minecraft.world.level.storage.loot;
@@ -45,7 +45,7 @@ public final class ColorCollection<T> {
 
 class LootConstantTest(unittest.TestCase):
     def test_single_constant_263(self) -> None:
-        from oa.adapters.source import lootconstants
+        from ra.adapters.source import lootconstants
 
         constants = lootconstants._parse_colors_from_text(COLOR_COLLECTION_DEF)
         self.assertEqual(constants, ["white", "orange", "magenta"])
@@ -55,7 +55,7 @@ class LootConstantTest(unittest.TestCase):
         self.assertEqual(single["SHEAR_SHEEP"], "shearing/sheep")
 
     def test_color_collection_expands(self) -> None:
-        from oa.adapters.source import lootconstants
+        from ra.adapters.source import lootconstants
 
         text = strip_comments(BUILTIN_263)
         found = lootconstants.COLOR_COLLECTION.findall(text)
@@ -65,7 +65,7 @@ class LootConstantTest(unittest.TestCase):
         self.assertEqual(prefix, "shearing/sheep/")
 
     def test_legacy_type_is_resource_location(self) -> None:
-        from oa.adapters.source import lootconstants
+        from ra.adapters.source import lootconstants
 
         text = strip_comments(BUILTIN_1182)
         single = dict(lootconstants.SINGLE.findall(text))
@@ -142,7 +142,7 @@ class TradeDirectionTest(unittest.TestCase):
     """
 
     def test_emerald_for_items_gives_emerald(self) -> None:
-        from oa.adapters.source.idioms.trades import OFFER_SHAPES
+        from ra.adapters.source.idioms.trades import OFFER_SHAPES
 
         shape = OFFER_SHAPES["EmeraldForItems"]
         args = ["Items.WHEAT", "20", "16", "2"]
@@ -150,7 +150,7 @@ class TradeDirectionTest(unittest.TestCase):
         self.assertEqual(shape.resolve_pay(args), ("wheat", 20))
 
     def test_items_for_emeralds_gives_item(self) -> None:
-        from oa.adapters.source.idioms.trades import OFFER_SHAPES
+        from ra.adapters.source.idioms.trades import OFFER_SHAPES
 
         shape = OFFER_SHAPES["ItemsForEmeralds"]
         args = ["Items.BREAD", "1", "6", "16", "1"]
@@ -158,7 +158,7 @@ class TradeDirectionTest(unittest.TestCase):
         self.assertEqual(shape.resolve_pay(args), ("emerald", 1))
 
     def test_link_head_is_given_item(self) -> None:
-        from oa.adapters.source.idioms.trades import offers_to_link
+        from ra.adapters.source.idioms.trades import offers_to_link
 
         link = offers_to_link(("EmeraldForItems", ["Items.WHEAT", "20", "16", "2"]), "farmer", 1)
         self.assertEqual(link.head, "item:minecraft:emerald")
@@ -172,7 +172,7 @@ class TradeDirectionTest(unittest.TestCase):
         `MerchantOffer(emeralds, BOOK, enchantedBook, ...)`，两个支付位。
         只取第一个会得到「绿宝石换附魔书」，把书这个前提抹掉。
         """
-        from oa.adapters.source.idioms.trades import offers_to_link
+        from ra.adapters.source.idioms.trades import offers_to_link
 
         link = offers_to_link(("EnchantBookForEmeralds", ["1"]), "librarian", 1)
         self.assertEqual(link.head, "item:minecraft:enchanted_book")
@@ -187,7 +187,7 @@ class TradeDirectionTest(unittest.TestCase):
         `EmeraldsForVillagerTypeItem(1, 12, 30, ImmutableMap…put(PLAINS, OAK_BOAT)…)`
         是「每种村民用地的一种船换绿宝石」。只取第一个会漏掉其余类型。
         """
-        from oa.adapters.source.idioms.trades import offers_to_links
+        from ra.adapters.source.idioms.trades import offers_to_links
 
         args = [
             "1",
@@ -211,7 +211,7 @@ class TradeDirectionTest(unittest.TestCase):
         6 参把 emeraldCost 折叠成 1，于是 to/toCount 在 arg2/arg3；7 参显式给出
         emeraldCost，整体后移到 arg3/arg4。按 6 参读 7 参会取到绿宝石数量当物品名。
         """
-        from oa.adapters.source.idioms.trades import offers_to_link
+        from ra.adapters.source.idioms.trades import offers_to_link
 
         six = offers_to_link(
             ("ItemsAndEmeraldsToItems", ["Items.COD", "6", "Items.COOKED_COD", "6", "16", "1"]),
@@ -233,7 +233,7 @@ class TradeDirectionTest(unittest.TestCase):
         self.assertEqual(seven.meta["pay_counts"], [2, 6])
 
     def test_link_head_is_given_item_for_reverse_shape(self) -> None:
-        from oa.adapters.source.idioms.trades import offers_to_link
+        from ra.adapters.source.idioms.trades import offers_to_link
 
         link = offers_to_link(("ItemsForEmeralds", ["Items.BREAD", "1", "6", "16", "1"]), "farmer", 1)
         self.assertEqual(link.head, "item:minecraft:bread")
@@ -241,7 +241,7 @@ class TradeDirectionTest(unittest.TestCase):
         self.assertEqual(link.meta["give_count"], 6)
 
     def test_every_shape_has_basis(self) -> None:
-        from oa.adapters.source.idioms.trades import OFFER_SHAPES
+        from ra.adapters.source.idioms.trades import OFFER_SHAPES
 
         for name, shape in OFFER_SHAPES.items():
             self.assertTrue(shape.basis, f"{name} 缺推导依据")

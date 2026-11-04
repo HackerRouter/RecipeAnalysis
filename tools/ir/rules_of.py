@@ -1,7 +1,7 @@
 """列出一个节点在 IR 里的全部规则，以及每条规则的 body 判定状态。
 
 从 `output/<label>/facts/` 读回事实重建 IR，不依赖 inputs（只读产物即可复盘）。
-与 `oa why` 的分工：本脚本列**规则**（含不成立的），`oa why` 追**路径**（只列成立的）。
+与 `ra why` 的分工：本脚本列**规则**（含不成立的），`ra why` 追**路径**（只列成立的）。
 """
 
 import json
@@ -11,10 +11,10 @@ import sys
 sys.path.insert(0, "src")
 sys.stdout.reconfigure(encoding="utf-8")
 
-from oa.facts.schema import Fact, Prov, Status  # noqa: E402
-from oa.facts.store import FactStore  # noqa: E402
-from oa.ir.compile import compile_ir  # noqa: E402
-from oa.solve.fixpoint import solve  # noqa: E402
+from ra.facts.schema import Fact, Prov, Status  # noqa: E402
+from ra.facts.store import FactStore  # noqa: E402
+from ra.ir.compile import compile_ir  # noqa: E402
+from ra.solve.fixpoint import solve  # noqa: E402
 
 
 def load_store(label: str) -> FactStore:

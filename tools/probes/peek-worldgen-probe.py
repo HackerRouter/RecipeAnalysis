@@ -4,10 +4,10 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-from oa.inputs import ensure_reports, load_manifest
-from oa.paths import cache_root, input_pack, repo_root
-from oa.probe import build_profile
-from oa.probe.registries import Registries
+from ra.inputs import ensure_reports, load_manifest
+from ra.paths import cache_root, input_pack, repo_root
+from ra.probe import build_profile
+from ra.probe.registries import Registries
 
 ROOT = repo_root()
 OUT = Path("output/worldgen-probe.txt")

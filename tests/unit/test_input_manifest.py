@@ -18,7 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from oa.inputs.manifest import load_manifest, reconcile
+from ra.inputs.manifest import load_manifest, reconcile
 
 
 def _init_repo(path: Path) -> Path:

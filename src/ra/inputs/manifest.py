@@ -102,7 +102,7 @@ def _write_sections(path: Path, sections: dict[str, dict], source: dict) -> None
     """
     lines = [
         "# 每个版本一段，段名即 `inputs/<label>/` 的目录名。",
-        "# 增删输入目录后本文件会由 `oa inputs init` 自动补齐，无需手改。",
+        "# 增删输入目录后本文件会由 `ra inputs init` 自动补齐，无需手改。",
         "",
         "# 源码仓库：一份仓库带多个版本的历史，各版本段用 content_commit 指明用哪个提交。",
         "# 不写这一行则要求各版本段里的 java/ 已放好完整源码树。",

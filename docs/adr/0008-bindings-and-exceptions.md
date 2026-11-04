@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/ir/families/bindings.py`、
+- 相关：`src/ra/ir/families/bindings.py`、
   `knowledge/maps/exceptions/unobtainable.json`
 
 ## 背景

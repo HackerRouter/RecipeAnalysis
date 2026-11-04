@@ -18,6 +18,6 @@
 | [`datagen.md`](datagen.md) | 数据生成器的选项、产物形态、输入的获取与校验 |
 | [`adr/`](adr/) | 设计决策，一条一份 |
 
-具体某个版本的实测结论不入库，由 `oa guide --label <label>` 从产物生成到 `output/<label>/guide.md`。
+具体某个版本的实测结论不入库，由 `ra guide --label <label>` 从产物生成到 `output/<label>/guide.md`。
 
 新增文档前，先按 [AGENTS.md](../AGENTS.md) 的内容归属表确认落点。

@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-03
-- 相关：`src/oa/ir/families/trades.py`、`knowledge/assumptions.toml`、
+- 相关：`src/ra/ir/families/trades.py`、`knowledge/assumptions.toml`、
   `docs/adr/0007-trades-family.md`
 
 ## 背景

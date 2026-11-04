@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-01
-- 相关：`inputs/manifest.toml` 的 `[source]` 段与各版本段、`src/oa/inputs/manifest.py`
+- 相关：`inputs/manifest.toml` 的 `[source]` 段与各版本段、`src/ra/inputs/manifest.py`
 
 ## 背景
 
@@ -25,7 +25,7 @@
 - 提交号只从配置读取。未配置则 provenance 记 `null`，不推导、不回退。
 - 输入包只提供反编译源码树（`java/`）时，视为用户的第一手内容，同样记 `null`。
 - 导出用 `git archive <提交>:<Java 源码根>`，不 checkout，不改工作树状态（见 [ADR 0013](0013-source-tree-by-feature-file.md)）。
-- 提交号属于配置，写在 `inputs/manifest.toml` 的版本段；产物侧由 `output/<label>/run.json` 与 `oa guide` 的记录给出。
+- 提交号属于配置，写在 `inputs/manifest.toml` 的版本段；产物侧由 `output/<label>/run.json` 与 `ra guide` 的记录给出。
 
 ## 后果
 

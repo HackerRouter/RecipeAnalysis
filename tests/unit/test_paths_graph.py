@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import unittest
 
-from oa.facts.schema import Prov
-from oa.ir.nodes import Rule, RuleSet
-from oa.report.paths import PathBuildError, PathOptions, build_path_graph
-from oa.report.paths.render import build_dot
-from oa.report.paths.style import TARGET_BORDER, TARGET_FILL, condition_label, craft_of
-from oa.solve.fixpoint import SolveResult, State
+from ra.facts.schema import Prov
+from ra.ir.nodes import Rule, RuleSet
+from ra.report.paths import PathBuildError, PathOptions, build_path_graph
+from ra.report.paths.render import build_dot
+from ra.report.paths.style import TARGET_BORDER, TARGET_FILL, condition_label, craft_of
+from ra.solve.fixpoint import SolveResult, State
 
 
 def _rule(rid: str, head: str, body: tuple[str, ...], *, family: str = "recipes", **meta) -> Rule:

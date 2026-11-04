@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import unittest
 
-from oa.report import build_reachability
-from oa.solve.fixpoint import State
+from ra.report import build_reachability
+from ra.solve.fixpoint import State
 
 from .. import support
 from ..golden import ALL_SAMPLES, Sample
@@ -21,9 +21,9 @@ def _solve(label: str):
     if label in _CACHE:
         return _CACHE[label]
 
-    from oa.ir.knowledge import load_exceptions
-    from oa.ir.compile import compile_ir
-    from oa.solve.fixpoint import solve
+    from ra.ir.knowledge import load_exceptions
+    from ra.ir.compile import compile_ir
+    from ra.solve.fixpoint import solve
 
     store = support.store(label)
     rules, report = compile_ir(store, support.ROOT)

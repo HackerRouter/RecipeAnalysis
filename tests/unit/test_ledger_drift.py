@@ -17,12 +17,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from oa.report.drift import compare_ledger
-from oa.facts import FactStore, LedgerStatus
+from ra.report.drift import compare_ledger
+from ra.facts import FactStore, LedgerStatus
 
 
 def _make_store(rows: list[tuple[str, LedgerStatus]]) -> FactStore:
-    from oa.facts.schema import LedgerRow
+    from ra.facts.schema import LedgerRow
 
     store = FactStore(label="test")
     for file, status in rows:

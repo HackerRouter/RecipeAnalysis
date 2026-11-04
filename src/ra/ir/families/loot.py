@@ -320,7 +320,7 @@ def _or_combinations(
     """把 AND 的 `body` 与若干 OR 组展开成多条 body，并给每条一个 id 后缀。
 
     IR 只有 AND body 与「同 head 多条规则」两层，所以 OR 必须在这里展开成
-    多条规则。展开后每条都是一条独立获取途径，与 `oa why` 的口径一致。
+    多条规则。展开后每条都是一条独立获取途径，与 `ra why` 的口径一致。
     """
     groups: list[list[str]] = [g for g in alternatives if g]
     if tools:

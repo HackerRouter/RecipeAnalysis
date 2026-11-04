@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/ir/bridges/entities.py`、
+- 相关：`src/ra/ir/bridges/entities.py`、
   `knowledge/maps/mechanism/entity_behaviour.json`
 
 ## 背景

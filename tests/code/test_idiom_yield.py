@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.source import _fold_notes
+from ra.adapters.source import _fold_notes
 
 
 def _pack(label: str):

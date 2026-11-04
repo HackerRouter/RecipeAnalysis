@@ -15,12 +15,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from oa.adapters import audit_tree, run_adapters, skip_inert_registries, sweep_assets
-from oa.facts import FactStore
-from oa.inputs import ensure_reports, ensure_structures, load_manifest
-from oa.paths import cache_root, input_pack, repo_root
-from oa.probe import build_profile
-from oa.probe.registries import Registries
+from ra.adapters import audit_tree, run_adapters, skip_inert_registries, sweep_assets
+from ra.facts import FactStore
+from ra.inputs import ensure_reports, ensure_structures, load_manifest
+from ra.paths import cache_root, input_pack, repo_root
+from ra.probe import build_profile
+from ra.probe.registries import Registries
 
 ROOT = repo_root()
 
@@ -52,9 +52,9 @@ def known_labels() -> tuple[str, ...]:
 def chosen_labels() -> frozenset[str]:
     """当前筛选的版本。空集表示全选。
 
-    值来自 `pytest --label`（由 `conftest.py` 写入）或环境变量 `OA_LABELS`。
+    值来自 `pytest --label`（由 `conftest.py` 写入）或环境变量 `RA_LABELS`。
     """
-    raw = os.environ.get("OA_LABELS", "").strip()
+    raw = os.environ.get("RA_LABELS", "").strip()
     return frozenset(part.strip() for part in raw.split(",") if part.strip())
 
 

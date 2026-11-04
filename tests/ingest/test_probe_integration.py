@@ -3,7 +3,7 @@
 只在输入包存在时运行，不下载、不联网。判据是硬事实：
 注册表全集、目录归属、方言判定、文件全覆盖。
 这些数字是各版本输入包的实测基线，用于防漂移，不是设想值。
-变更预期前先跑 `oa probe --label <label>` 确认新值。
+变更预期前先跑 `ra probe --label <label>` 确认新值。
 """
 
 from __future__ import annotations
@@ -11,13 +11,13 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from oa.paths import repo_root
+from ra.paths import repo_root
 
 from tests.support import pack, why
 
 ROOT = repo_root()
 
-# 输入包标签 → 该版本预期。数字是该输入包的实测值，变更前先跑 `oa probe --label <label>` 核对。
+# 输入包标签 → 该版本预期。数字是该输入包的实测值，变更前先跑 `ra probe --label <label>` 核对。
 EXPECTED = {
     "26.3": {
         "dirs": {"recipe": 2042, "loot_table": 1447, "tags": 883},

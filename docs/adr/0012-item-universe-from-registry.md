@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-01
-- 相关：`src/oa/cli.py` 的 `_item_universe`、`src/oa/report/reachability.py` 的
+- 相关：`src/ra/cli.py` 的 `_item_universe`、`src/ra/report/reachability.py` 的
   `identities`、`knowledge/maps/exceptions/unobtainable.json` 的 `_patterns`
 
 ## 背景
@@ -37,7 +37,7 @@
 
 规则节点口径会隐藏几十个物品而报告上只表现为总数偏少，注册表全集口径下不隐藏任何物品。
 被隐藏的是刷怪蛋、`command_block_minecart`、`debug_stick` 等零规则物品；
-两版的具体偏差见 `oa guide --label <label>` 的「事实与规则产出」一节。
+两版的具体偏差见 `ra guide --label <label>` 的「事实与规则产出」一节。
 
 守卫：`test_universe_is_registry_not_rule_nodes`、`test_typed_only_not_in_denominator`、
 `test_item_universe_comes_from_registry`。
@@ -58,7 +58,7 @@
 
 ## 后果
 
-- 可达率按注册表全集计，两个版本的当前数值由 `oa guide --label <label>` 给出
+- 可达率按注册表全集计，两个版本的当前数值由 `ra guide --label <label>` 给出
 - `no_rule` 计入分母，归因统计涵盖全部物品
 - 不设 `adapters.crosscheck_items`、`cli` 的对账打印与 `assets` 的必需性
 - `identities` 成为生产必需参数；`test_ir_integration` 与生产走同一路径

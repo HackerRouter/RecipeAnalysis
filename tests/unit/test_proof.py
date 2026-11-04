@@ -1,15 +1,15 @@
 """证明枚举的单元测试：不依赖输入包。
 
-`oa why` 的回答质量全靠这一层：它要说清「有哪几条拿法」，而不只是「能拿到」。
+`ra why` 的回答质量全靠这一层：它要说清「有哪几条拿法」，而不只是「能拿到」。
 """
 
 from __future__ import annotations
 
 import unittest
 
-from oa.ir.nodes import Rule, RuleSet
-from oa.solve.fixpoint import State, solve
-from oa.solve.proof import enumerate_proofs, flatten_leaves, iter_steps
+from ra.ir.nodes import Rule, RuleSet
+from ra.solve.fixpoint import State, solve
+from ra.solve.proof import enumerate_proofs, flatten_leaves, iter_steps
 
 
 def _setup(rules: list[Rule], seeds: list[str]):

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import unittest
 
-from oa.probe.profile import Profile
-from oa.probe.worldgen import WORLDGEN_SUBDIR_ALIASES, _anchors, _crosscheck
+from ra.probe.profile import Profile
+from ra.probe.worldgen import WORLDGEN_SUBDIR_ALIASES, _anchors, _crosscheck
 
 
 def _pack(label: str):

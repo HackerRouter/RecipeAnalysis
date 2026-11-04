@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.source.idioms.buckets import EMPTY_BUCKET, MOB_BUCKET, _registry_name
-from oa.adapters.source.idioms.structure_gadgets import (
+from ra.adapters.source.idioms.buckets import EMPTY_BUCKET, MOB_BUCKET, _registry_name
+from ra.adapters.source.idioms.structure_gadgets import (
     ENTITY_CONST,
     ITEMSTACK,
     _branches,
@@ -137,7 +137,7 @@ class CodePathBase:
         直接复用生产代码的取集合函数：测试自己再实现一份，两版子目录名不同时
         会分叉（`structure` vs `configured_structure_feature`），这次就是这么踩的。
         """
-        from oa.adapters.source import known_structures
+        from ra.adapters.source import known_structures
 
         known = known_structures(self.store)
         self.assertTrue(known, "worldgen 事实里没有结构，对账会空过")

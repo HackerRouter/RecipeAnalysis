@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.source.idioms.loot_alias import ALIAS_CALL, REGISTER_DECL, LootAliases
+from ra.adapters.source.idioms.loot_alias import ALIAS_CALL, REGISTER_DECL, LootAliases
 
 
 from tests.support import pack, why

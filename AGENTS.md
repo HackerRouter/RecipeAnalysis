@@ -22,7 +22,7 @@
 ## 项目红线
 
 1. `ref/` 只读：不 checkout、不建工作树、不写入、不改工作树状态。
-2. 输入包的第一手内容只读：不改用户提供的 `server.jar` 与 `java/`。`data/`、`version.json`、`java.json` 是派生，`manifest.toml` 是配置，由 `oa inputs init` 维护。无 `java.json` 的 `java/` 视为第一手内容，覆盖需显式 `--force`。
+2. 输入包的第一手内容只读：不改用户提供的 `server.jar` 与 `java/`。`data/`、`version.json`、`java.json` 是派生，`manifest.toml` 是配置，由 `ra inputs init` 维护。无 `java.json` 的 `java/` 视为第一手内容，覆盖需显式 `--force`。
 3. 扫描不到的东西不得静默跳过，必须显式登记：只有 `type` 的配方、`dynamic` 战利品条目、数据包内无引用点的代码绑定，一律留痕。
 4. 产物必须带 provenance：`run.json` 记录 `jar_sha256`、`ir_schema`、`facts_digest`、`content_commit` 与 `source_repo`。前三项缺失则报告不可复算；提交号未配置时记 `null`，此时代码侧结论不可复算。`graph.json` 只带 `graph_schema` / `ir_schema` / `facts_digest`，能判断是否过期，不能证明来自哪个 jar——引用图上的结论时另引 `run.json`。
 
@@ -30,7 +30,7 @@
 
 - 方案与分层放 `plan/`，定稿后迁入 `docs/`。`plan/` 允许自相矛盾，`docs/` 只写已定的事实与规定。
 - 规格放 `docs/<主题>.md`；一条设计决策一份 `docs/adr/`；数据形状的识别判据放 `docs/shapes.md`。
-- 结论按当前输入现场生成（`oa guide`），不手抄进文档；写进文档的每个数字都要有固定出处。
+- 结论按当前输入现场生成（`ra guide`），不手抄进文档；写进文档的每个数字都要有固定出处。
 - 数据契约随实现落在代码里（事实 schema、IR schema）。字段改动属契约变更，走 ADR。
 - ADR 只写「换一种做法会错在哪」与判据。取证过程、进度数字、已被代码与测试钉住的守卫不留在正文；确需保留的历史判断放 `ref/history/`。
 - 同一内容只写一处，其余用链接指向。指向 `plan/` 的章节号不构成指针，它不入版本库。
@@ -38,7 +38,7 @@
 
   | 内容 | 落点 |
   |---|---|
-  | 某个版本的数据长什么样 | `oa guide --label <label>` 产出，不入版本库 |
+  | 某个版本的数据长什么样 | `ra guide --label <label>` 产出，不入版本库 |
   | 数据形状的识别判据（跨版本） | `docs/shapes.md` |
   | 项目怎么规定（判据、取舍） | `docs/<主题>.md` 或 `docs/adr/` |
   | 一次性取证过程 | 不入版本库，或存 `ref/history/` |

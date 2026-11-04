@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-10-31
-- 相关：`src/oa/adapters/source/idioms/`、`src/oa/adapters/source/verify.py`
+- 相关：`src/ra/adapters/source/idioms/`、`src/ra/adapters/source/verify.py`
 
 ## 背景
 

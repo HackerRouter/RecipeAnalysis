@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from oa.adapters.source.idioms.drops import LITERAL_SLOT, _entity_name
+from ra.adapters.source.idioms.drops import LITERAL_SLOT, _entity_name
 
 
 from tests.support import pack, why
