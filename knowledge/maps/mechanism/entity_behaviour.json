@@ -23,7 +23,11 @@
     "  actor     行为发生所必需的主体节点",
     "  inputs    消耗品，会被用掉",
     "  basis     一行机制依据",
-    "  evidence  代码位置或数据包路径，供复算"
+    "  evidence  代码位置或数据包路径，供复算",
+    "",
+    "本表全版本共用，条目不带版本条件。编译期按该版本的注册表对账：",
+    "actor / inputs 里有该版本不存在的节点则整条不产，produces 里不存在的只剔除那一条。",
+    "所以可以放心写新版本才有的机制，不会在旧版本造出节点。见 ADR 0005 第三节。"
   ],
 
   "dragon_egg": {
@@ -80,6 +84,19 @@
     "inputs": [],
     "basis": "带蜂巢的树在生成时挂上蜂巢方块；蜂巢本身不是独立的 worldgen feature",
     "evidence": "worldgen/feature 里没有 bee_nest 方块引用；树用 decorator 挂蜂巢，decorator 只有概率没有方块名（JSON 里是 {type: minecraft:beehive, probability: 0.2}），方块名写在 BeehiveDecorator 代码里"
+  },
+
+  "sculk_from_catalyst": {
+    "produces": [
+      "block:minecraft:sculk",
+      "block:minecraft:sculk_vein",
+      "block:minecraft:sculk_sensor",
+      "block:minecraft:sculk_shrieker"
+    ],
+    "actor": "block:minecraft:sculk_catalyst",
+    "inputs": ["assume:mob_spawn"],
+    "basis": "幽匿催发体 8 格内有生物死亡时，它本该掉落的经验被收作电量并向周围扩散：换掉可替换方块长出幽匿，电量充足时继续长出幽匿感测体或幽匿尖啸体",
+    "evidence": "SculkCatalystBlockEntity.CatalystListener#handleGameEvent：事件为 ENTITY_DIE 且生物 shouldDropExperience 时 sculkSpreader.addCursors(...)，然后由 SculkSpreader 逐格消耗电量；SculkVeinBlock#attemptPlaceSculk 放 Blocks.SCULK，SculkBlock#getRandomGrowthState 以 1/11 概率放 SCULK_SHRIEKER、其余放 SCULK_SENSOR"
   },
 
   "chipped_anvil": {

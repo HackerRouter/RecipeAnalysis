@@ -202,6 +202,7 @@ class GoldenCoverageTest(unittest.TestCase):
         "循环无入口",
         "模板承载",
         "实体行为",
+        "实体来源",
     )
 
     def test_required_kinds_are_covered(self) -> None:

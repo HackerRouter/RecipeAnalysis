@@ -45,6 +45,15 @@ knowledge/
 具体机制。每条带 `basis`（一行依据）与 `evidence`（可复算的代码位置或数据包路径）。
 相邻机制的边界写在各自文件内，与内容同处，不在此处重复。
 
+机制表全版本共用，条目不带版本条件，跨版本由各表自己的门控负责：
+
+- `entity_sources` / `entity_behaviour` 的 `item` / `block` / `entity` 节点在编译期按该版本
+  的注册表对账：前提（`actor`、`inputs`、`requires`）缺一项则整条不产，结论（`produces`、
+  head）缺一项只剔除那一条。判据见
+  [ADR 0005](../docs/adr/0005-entity-sources-and-behaviour.md#三知识表无版本维度靠编译期对账)。
+- `worldgen_code_blocks` 的键是特征类型，门控是「该版本有特征引用这个类型」。判据见
+  [ADR 0003](../docs/adr/0003-worldgen-and-references.md)。
+
 ### 例外
 
 生存确定不可获取的物品。前三类参与规则编译，本类参与归因：把 `no_rule` 拆分为

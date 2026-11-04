@@ -37,6 +37,7 @@ from .bridges import (
     table_provider_rules,
     tag_rules,
     tool_rules,
+    worldgen_code_rules,
 )
 from .families.bindings import compile_bindings
 from .families.code import compile_code
@@ -125,6 +126,8 @@ class CompileReport:
     template_items: int = 0
     unknown_template_item_ids: dict[str, int] = field(default_factory=dict)
     unknown_template_item_holders: dict[str, int] = field(default_factory=dict)
+    # 代码驱动世界生成的统计（写错方块、表项缺字段）
+    worldgen_code_stats: dict[str, int] = field(default_factory=dict)
 
     def as_json(self) -> dict:
         return {
@@ -170,6 +173,7 @@ class CompileReport:
             "template_items": self.template_items,
             "unknown_template_item_ids": self.unknown_template_item_ids,
             "unknown_template_item_holders": self.unknown_template_item_holders,
+            "worldgen_code_stats": self.worldgen_code_stats,
             "notes": self.notes,
         }
 
@@ -200,6 +204,7 @@ def compile_ir(store: FactStore, root: Path) -> tuple[RuleSet, CompileReport]:
     transform_inverse = load_map(root, MECHANISM, "transform_inverse")
     entity_source_map = load_map(root, MECHANISM, "entity_sources")
     entity_behaviour_map = load_map(root, MECHANISM, "entity_behaviour")
+    worldgen_code_map = load_map(root, MECHANISM, "worldgen_code_blocks")
     transform_conventions = load_map(root, MECHANISM, "transform_conventions")
     table_provider_map = load_map(root, MECHANISM, "table_providers")
 
@@ -274,6 +279,15 @@ def compile_ir(store: FactStore, root: Path) -> tuple[RuleSet, CompileReport]:
     report.anchored_by_registry = dict(worldgen_result.anchored_by_registry)
     report.unresolved_slots = dict(worldgen_result.unresolved_refs)
 
+    # 方块名写在特征实现类里的那类世界生成。门控在本版本是否有该特征的事实，
+    # 所以旧版本不产。放在 `worldgen` 之后：同一 head 多规则就是 OR。
+    code_worldgen, code_stats = worldgen_code_rules(
+        store.of_kind("worldgen"), worldgen_code_map, block_ids
+    )
+    rule_set.extend(code_worldgen)
+    report.rule_counts["bridge/worldgen_code"] = len(code_worldgen)
+    report.worldgen_code_stats = code_stats
+
     transform_result = compile_transforms(
         store.of_kind("block_transform"),
         tool_class,
@@ -337,12 +351,19 @@ def compile_ir(store: FactStore, root: Path) -> tuple[RuleSet, CompileReport]:
     rule_set.extend(enchant)
     report.rule_counts["bridge/enchant"] = len(enchant)
 
-    source_rules, source_problems = entity_source_rules(entity_source_map)
+    # 知识表全版本共用，条目里的节点必须在该版本确实存在才编成规则：
+    # 否则会造出该版本没有的节点（判 false 污染统计；body 若是版本无关节点则判 true，
+    # 把不存在的方块说成可得）。
+    known_nodes = {"item": item_ids, "block": block_ids, "entity": entity_ids}
+
+    source_rules, source_problems = entity_source_rules(entity_source_map, known_nodes)
     rule_set.extend(source_rules)
     report.rule_counts["bridge/entity_source"] = len(source_rules)
     report.entity_source_problems = source_problems
 
-    behaviour_rules, behaviour_problems = entity_behaviour_rules(entity_behaviour_map)
+    behaviour_rules, behaviour_problems = entity_behaviour_rules(
+        entity_behaviour_map, known_nodes
+    )
     rule_set.extend(behaviour_rules)
     report.rule_counts["bridge/entity_behaviour"] = len(behaviour_rules)
     report.entity_behaviour_problems = behaviour_problems

@@ -1,0 +1,28 @@
+{
+  "_about": [
+    "代码驱动的世界生成：特征是 JSON 定义了参数、方块名却写在实现类里的那些。",
+    "",
+    "正常情况下世界生成方块的来源是 `worldgen/feature/*.json` 里的方块引用，",
+    "由 `compile_worldgen` 直接得到，不需要本表。本表只收「JSON 没有方块字段」的特征。",
+    "",
+    "键是特征类型（`worldgen` 事实里 `type` 的全名），值是该特征铺出的方块。",
+    "",
+    "编译期两道门控，所以表可以同时写多个版本的机制：",
+    "  1. 该版本必须存在这个类型的世界生成事实。没有该特征就没有规则。",
+    "  2. 方块必须在该版本的 block 注册表里，否则记 unknown_block，不产规则。",
+    "",
+    "判据为什么不做成 idiom：特征类只创建扩散器，方块名在另一个包的方块类里，",
+    "中间隔两层间接调用，没有可判别的固定代码形状。见 ADR 0003。",
+    "",
+    "字段：",
+    "  blocks    该特征的实现类最终铺出的方块 id 列表",
+    "  basis     一行机制依据",
+    "  evidence  代码位置，供复算"
+  ],
+
+  "minecraft:sculk_patch": {
+    "blocks": ["minecraft:sculk"],
+    "basis": "sculk_patch 特征从原点向外扩散，把可替换方块换成幽匿方块并长出幽匿脉络",
+    "evidence": "SculkPatchFeature#place 建 SculkSpreader.createWorldGenSpreader() 后逐轮 updateCursors；ChargeCursor#update 调 SculkBehaviour#attemptSpreadVein，SculkVeinBlock#attemptPlaceSculk 里 level.setBlockAndUpdate(supportPos, Blocks.SCULK.defaultBlockState())。feature/sculk_patch_*.json 只有 charge_count / amount_per_charge / spread_attempts 等参数，没有方块字段，所以 references 里只有同文件的 simple_block 放下的 sculk_catalyst / sculk_shrieker"
+  }
+}

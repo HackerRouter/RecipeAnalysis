@@ -2,18 +2,26 @@
   "_about": [
     "实体的来源：世界生成事实之外的部分。方案 §9 的知识表。",
     "",
-    "世界生成事实只覆盖按群系或结构刷新的实体。下列两类不在其列：",
+    "世界生成事实只覆盖按群系或结构刷新的实体。下列四类不在其列：",
     "",
     "  summon     由玩家按图案摆出（凋灵），不会自然生成",
     "  dimension  固定在某个维度的 boss（末影龙），由维度战斗逻辑生成",
+    "  breed      由两个亲本繁殖（骡：马 + 驴），自己没有自然生成条目",
+    "  event      由世界生成器或另一实体的生成动作放出来（流浪商人、行商羊驼）",
+    "",
+    "kind 与代码里的生成原因对应：summon 是玩家构造，breed 对应 BREEDING，",
+    "event 对应 EVENT。选哪一种只由「前置是什么」决定，与实体是否稀有无关。",
     "",
     "实体产出物品的机制不属本表，见 entity_behaviour.json。",
     "",
     "字段：",
-    "  kind       summon / dimension",
+    "  kind       summon / dimension / breed / event",
     "  requires   成立所需的节点。成员尽量用 tag 引用（成员由 tag 事实给出），不枚举",
     "  pattern    图案或场景的描述，供人核对，不参与判定",
-    "  basis      取证位置"
+    "  basis      取证位置",
+    "",
+    "本表全版本共用，条目不带版本条件。实体本身或 requires 里有该版本不存在的",
+    "item / block / entity 时整条不产。见 ADR 0005 第三节。"
   ],
 
   "minecraft:wither": {
@@ -31,5 +39,26 @@
     "requires": ["assume:end"],
     "pattern": "首次进入末地时由 EndDragonFight 生成；末地水晶可复活",
     "basis": "EnderDragonFight 第 399 行 EntityTypes.ENDER_DRAGON.create(level, EntitySpawnReason.EVENT)；不经 biome spawner，所以 worldgen 事实里没有它"
+  },
+
+  "minecraft:wandering_trader": {
+    "kind": "event",
+    "requires": ["assume:wandering_trader"],
+    "pattern": "世界生成器定期在玩家附近找一片空地放下流浪商人；不经生物群系刷怪表",
+    "basis": "WanderingTraderSpawner#spawn：取随机玩家，在会议点（无则玩家脚下）48 格内找落点，EntityTypes.WANDERING_TRADER.spawn(level, pos, EntitySpawnReason.EVENT)。生物群系只用于排除 WITHOUT_WANDERING_TRADER_SPAWNS，spawners 里没有该实体。1.18.2 同文件同流程（EntityType.WANDERING_TRADER.spawn(..., MobSpawnType.EVENT, ...)）"
+  },
+
+  "minecraft:trader_llama": {
+    "kind": "event",
+    "requires": ["entity:minecraft:wandering_trader"],
+    "pattern": "流浪商人生成后，在商人附近再放 2 只行商羊驼，并用拴绳系在商人身上",
+    "basis": "WanderingTraderSpawner#spawn：商人 spawn 成功后 for (int i = 0; i < 2; ++i) this.tryToSpawnLlamaFor(...)；tryToSpawnLlamaFor 里 EntityTypes.TRADER_LLAMA.spawn(level, pos, EntitySpawnReason.EVENT)，随后 llama.setLeashedTo(trader, true)。1.18.2 同文件同结构（EntityType.TRADER_LLAMA.spawn(..., MobSpawnType.EVENT, ...)）"
+  },
+
+  "minecraft:mule": {
+    "kind": "breed",
+    "requires": ["entity:minecraft:horse", "entity:minecraft:donkey"],
+    "pattern": "马与驴交配，幼体是骡；骡自己不自然生成，也不能再繁殖",
+    "basis": "Horse#getBreedOffspring：partner instanceof Donkey 时返回 EntityTypes.MULE.create(level, EntitySpawnReason.BREEDING)；Donkey#getBreedOffspring 在 partner instanceof Horse 时同样返回 MULE。两版一致（1.18.2 为 EntityType.MULE.create(serverLevel)，无 spawn reason 参数）"
   }
 }

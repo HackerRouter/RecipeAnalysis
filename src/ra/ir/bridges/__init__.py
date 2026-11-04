@@ -22,6 +22,7 @@ from .harvest import HarvestResult, derive_capabilities, harvest_rules
 from .mechanics import convention_transform_rules, table_provider_rules
 from .placement import place_rules
 from .vocabulary import enchant_rules, station_rules, tag_rules, tool_rules
+from .worldgen_code import worldgen_code_rules
 
 __all__ = [
     "BridgeResult",
@@ -37,4 +38,5 @@ __all__ = [
     "table_provider_rules",
     "tag_rules",
     "tool_rules",
+    "worldgen_code_rules",
 ]

@@ -17,11 +17,13 @@ from ra.ir.bridges import (
     entity_behaviour_rules,
     entity_source_rules,
     tool_rules,
+    worldgen_code_rules,
 )
 from ra.ir.families.bindings import compile_bindings
 from ra.ir.families.trades import compile_trades
 from ra.ir.families.transforms import compile_transforms
 from ra.ir.families.worldgen import compile_worldgen
+from ra.ir.nodes import split_node
 from ra.ir.tags import TagMembers
 from ra.solve.attribute import NO_RULE, UNOBTAINABLE, attribute
 from ra.solve.fixpoint import solve
@@ -29,6 +31,22 @@ from ra.solve.fixpoint import solve
 
 def _fact(kind: str, payload: dict) -> Fact:
     return Fact(kind=kind, payload=payload, prov=Prov(input="test", file="t.json"))
+
+
+def _registry(*node_ids: str) -> dict[str, set[str]]:
+    """把给定节点当作「该版本都存在」，供不关心存在性对账的用例使用。
+
+    非法节点直接跳过：部分用例正是拿非法节点测 `bad_node` 分支。
+    """
+    known: dict[str, set[str]] = {"item": set(), "block": set(), "entity": set()}
+    for node_id in node_ids:
+        try:
+            sort, ident = split_node(node_id)
+        except ValueError:
+            continue
+        if sort in known:
+            known[sort].add(ident)
+    return known
 
 
 class TradeTest(unittest.TestCase):
@@ -98,7 +116,7 @@ class TradeTest(unittest.TestCase):
         """流浪商人不依赖村庄、不补货，前提与职业村民不同，不能共用假设节点。
 
         共用会让 `knowledge/assumptions.toml` 的 `basis` 对其中一边失真，也让
-        「关掉村庄前提还能拿到什么」无法单独观察（ADR 0017）。
+        「关掉村庄前提还能拿到什么」无法单独观察（ADR 0006）。
         """
         facts = [
             _fact(
@@ -403,7 +421,12 @@ class EntityBehaviourTest(unittest.TestCase):
                     "basis": "",
                     "evidence": "",
                 }
-            )
+            ),
+            _registry(
+                "item:minecraft:dragon_breath",
+                "entity:minecraft:ender_dragon",
+                "item:minecraft:glass_bottle",
+            ),
         )
         self.assertEqual(problems, {})
         self.assertEqual(len(rules), 1)
@@ -424,7 +447,8 @@ class EntityBehaviourTest(unittest.TestCase):
                     "actor": "block:minecraft:frogspawn",
                     "inputs": [],
                 }
-            )
+            ),
+            _registry("entity:minecraft:tadpole", "block:minecraft:frogspawn"),
         )
         self.assertEqual(rules[0].head, "entity:minecraft:tadpole")
         self.assertEqual(rules[0].body, ("block:minecraft:frogspawn",))
@@ -438,7 +462,8 @@ class EntityBehaviourTest(unittest.TestCase):
                     "actor": "assume:player",
                     "inputs": ["item:minecraft:writable_book"],
                 }
-            )
+            ),
+            _registry("item:minecraft:written_book", "item:minecraft:writable_book"),
         )
         self.assertEqual(
             rules[0].body, ("assume:player", "item:minecraft:writable_book")
@@ -453,7 +478,8 @@ class EntityBehaviourTest(unittest.TestCase):
                     "actor": "world:minecraft:overworld",
                     "inputs": [],
                 }
-            )
+            ),
+            _registry("block:minecraft:bee_nest"),
         )
         self.assertEqual(rules[0].body, ("world:minecraft:overworld",))
 
@@ -465,7 +491,8 @@ class EntityBehaviourTest(unittest.TestCase):
                     "actor": "assume:player",
                     "inputs": [],
                 }
-            )
+            ),
+            _registry("item:minecraft:a", "block:minecraft:b"),
         )
         self.assertEqual({r.head for r in rules}, {"item:minecraft:a", "block:minecraft:b"})
         # id 必须唯一：一次声明多个产出时靠序号区分
@@ -479,13 +506,16 @@ class EntityBehaviourTest(unittest.TestCase):
                     "actor": "not_a_node",
                     "inputs": [],
                 }
-            )
+            ),
+            _registry("item:minecraft:a"),
         )
         self.assertEqual(rules, [])
         self.assertEqual(problems, {"case:bad_node": 1})
 
     def test_missing_produces_is_recorded(self) -> None:
-        rules, problems = entity_behaviour_rules({"case": {"actor": "assume:player"}})
+        rules, problems = entity_behaviour_rules(
+            {"case": {"actor": "assume:player"}}, _registry()
+        )
         self.assertEqual(rules, [])
         self.assertEqual(problems, {"case:no_produces": 1})
 
@@ -498,10 +528,45 @@ class EntityBehaviourTest(unittest.TestCase):
                     "actor": "assume:player",
                     "inputs": [],
                 }
-            )
+            ),
+            _registry("item:minecraft:a"),
         )
         self.assertEqual([r.head for r in rules], ["item:minecraft:a"])
         self.assertEqual(problems, {"case:bad_produces": 1})
+
+    def test_absent_actor_drops_the_whole_entry(self) -> None:
+        """前提里出现该版本没有的方块时整条不产。
+
+        幽灵节点不只是统计污染：前提若是 `world:` 这类版本无关节点，
+        规则还恒真，会把该版本根本没有的方块判成可得。
+        """
+        rules, problems = entity_behaviour_rules(
+            self._behaviour(
+                {
+                    "produces": ["block:minecraft:sculk"],
+                    "actor": "block:minecraft:sculk_catalyst",
+                    "inputs": [],
+                }
+            ),
+            _registry(),
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(problems, {"case:unknown_node": 1})
+
+    def test_absent_produce_is_skipped_alone(self) -> None:
+        """结论里有一个该版本不存在时，只剔除该结论，其余照产。"""
+        rules, problems = entity_behaviour_rules(
+            self._behaviour(
+                {
+                    "produces": ["block:minecraft:sculk_sensor", "block:minecraft:sculk_shrieker"],
+                    "actor": "block:minecraft:sculk_catalyst",
+                    "inputs": [],
+                }
+            ),
+            _registry("block:minecraft:sculk_catalyst", "block:minecraft:sculk_sensor"),
+        )
+        self.assertEqual([r.head for r in rules], ["block:minecraft:sculk_sensor"])
+        self.assertEqual(problems, {"case:unknown_produce": 1})
 
 
 class EntitySourceTest(unittest.TestCase):
@@ -516,7 +581,8 @@ class EntitySourceTest(unittest.TestCase):
                     "pattern": "T 形底座",
                     "basis": "",
                 }
-            }
+            },
+            _registry("entity:minecraft:wither"),
         )
         self.assertEqual(problems, {})
         self.assertEqual(rules[0].head, "entity:minecraft:wither")
@@ -532,24 +598,210 @@ class EntitySourceTest(unittest.TestCase):
                     "requires": ["assume:end"],
                     "basis": "",
                 }
-            }
+            },
+            _registry("entity:minecraft:ender_dragon"),
         )
         self.assertEqual(rules[0].body, ("assume:end",))
         self.assertEqual(rules[0].meta["source_kind"], "dimension")
 
+    def test_breed_kind_carries_both_parents(self) -> None:
+        """骡由马与驴繁殖；两个亲本都必须成立，缺一个就断链。"""
+        rules, problems = entity_source_rules(
+            {
+                "minecraft:mule": {
+                    "kind": "breed",
+                    "requires": ["entity:minecraft:horse", "entity:minecraft:donkey"],
+                    "basis": "",
+                }
+            },
+            _registry(
+                "entity:minecraft:mule",
+                "entity:minecraft:horse",
+                "entity:minecraft:donkey",
+            ),
+        )
+        self.assertEqual(problems, {})
+        self.assertEqual(rules[0].head, "entity:minecraft:mule")
+        self.assertEqual(
+            rules[0].body, ("entity:minecraft:horse", "entity:minecraft:donkey")
+        )
+        self.assertEqual(rules[0].meta["source_kind"], "breed")
+
+    def test_event_kind_uses_trigger_node(self) -> None:
+        """行商羊驼由流浪商人生成；触发者是实体节点，不是假设。"""
+        rules, problems = entity_source_rules(
+            {
+                "minecraft:trader_llama": {
+                    "kind": "event",
+                    "requires": ["entity:minecraft:wandering_trader"],
+                    "basis": "",
+                }
+            },
+            _registry("entity:minecraft:trader_llama", "entity:minecraft:wandering_trader"),
+        )
+        self.assertEqual(problems, {})
+        self.assertEqual(
+            rules[0].body, ("entity:minecraft:wandering_trader",)
+        )
+        self.assertEqual(rules[0].meta["source_kind"], "event")
+
     def test_unknown_kind_is_recorded(self) -> None:
         """未知 kind 不能静默当成 summon——它会悄悄造出一条错的规则。"""
         rules, problems = entity_source_rules(
-            {"x": {"kind": "spawned_by_magic", "requires": ["assume:player"]}}
+            {"x": {"kind": "spawned_by_magic", "requires": ["assume:player"]}},
+            _registry(),
         )
         self.assertEqual(rules, [])
         self.assertIn("x:unknown_kind:spawned_by_magic", problems)
 
     def test_node_key_may_omit_prefix(self) -> None:
         rules, _ = entity_source_rules(
-            {"minecraft:wither": {"kind": "dimension", "requires": ["assume:end"]}}
+            {"minecraft:wither": {"kind": "dimension", "requires": ["assume:end"]}},
+            _registry("entity:minecraft:wither"),
         )
         self.assertEqual(rules[0].head, "entity:minecraft:wither")
+
+    def test_absent_entity_is_recorded(self) -> None:
+        """该版本没有这个实体时整条不产，不造 head 节点。"""
+        rules, problems = entity_source_rules(
+            {"minecraft:tadpole": {"kind": "breed", "requires": ["entity:minecraft:frog"]}},
+            _registry("entity:minecraft:frog"),
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(problems, {"minecraft:tadpole:unknown_entity": 1})
+
+    def test_absent_require_is_recorded(self) -> None:
+        """前提实测不存在时整条不产；`requires` 是必要条件。"""
+        rules, problems = entity_source_rules(
+            {
+                "minecraft:mule": {
+                    "kind": "breed",
+                    "requires": ["entity:minecraft:horse", "entity:minecraft:donkey"],
+                }
+            },
+            _registry("entity:minecraft:mule", "entity:minecraft:horse"),
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(problems, {"minecraft:mule:unknown_node": 1})
+
+    def test_missing_registry_keys_raise(self) -> None:
+        """调用方漏给注册表集合时直接拒绝：静默跳过对账等于没有对账。"""
+        with self.assertRaises(ValueError):
+            entity_source_rules({}, {"item": set()})
+        with self.assertRaises(ValueError):
+            entity_behaviour_rules({}, {"item": set()})
+
+
+class WorldgenCodeTest(unittest.TestCase):
+    """代码驱动的世界生成：特征 JSON 无方块字段时，方块名由知识表补。
+
+    门控是「该版本的特征事实引用了这个类型」。所以表能同时写多版机制，
+    旧版本没有该特征就不产规则——这条性质是本模块存在的理由。
+    """
+
+    def _feature(self, ident: str, types: list[str], kind: str = "feature") -> Fact:
+        return Fact(
+            kind="worldgen",
+            payload={
+                "worldgen_kind": kind,
+                "id": ident,
+                "references": [{"id": t, "slot": "entity"} for t in types],
+            },
+            prov=Prov(input="src", file=f"{ident}.json"),
+        )
+
+    def _spec(self, blocks: list[str]) -> dict:
+        return {"minecraft:sculk_patch": {"blocks": blocks, "basis": "", "evidence": ""}}
+
+    def test_reference_to_feature_type_emits_rule(self) -> None:
+        """`sculk_patch` 是 `sequence` 里的元素，不是特征 JSON 的顶层 type。"""
+        facts = [
+            self._feature(
+                "data/minecraft/worldgen/feature/sculk_patch_deep_dark",
+                ["minecraft:sequence", "minecraft:sculk_patch"],
+            )
+        ]
+        rules, stats = worldgen_code_rules(
+            facts, self._spec(["minecraft:sculk"]), {"minecraft:sculk"}
+        )
+        self.assertEqual(len(rules), 1)
+        rule = rules[0]
+        self.assertEqual(rule.head, "block:minecraft:sculk")
+        self.assertEqual(rule.body, ("world:minecraft:overworld",))
+        self.assertEqual(rule.kind, "seeds")
+        self.assertEqual(rule.family, "bridge/worldgen_code")
+        self.assertEqual(rule.meta["feature_type"], "minecraft:sculk_patch")
+        self.assertEqual(stats["emitted"], 1)
+
+    def test_absent_feature_never_emits(self) -> None:
+        """旧版本没有该特征的事实 → 不产规则，不需要在表里写版本条件。"""
+        facts = [
+            self._feature(
+                "data/minecraft/worldgen/feature/ore_diamond", ["minecraft:ore"]
+            )
+        ]
+        rules, stats = worldgen_code_rules(
+            facts, self._spec(["minecraft:sculk"]), {"minecraft:sculk"}
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(stats, {})
+
+    def test_block_outside_registry_is_recorded(self) -> None:
+        """表里写了该版本没有的方块 → 留痕，不产规则。"""
+        facts = [
+            self._feature(
+                "data/minecraft/worldgen/feature/sculk_patch_deep_dark",
+                ["minecraft:sculk_patch"],
+            )
+        ]
+        rules, stats = worldgen_code_rules(facts, self._spec(["minecraft:sculk"]), set())
+        self.assertEqual(rules, [])
+        self.assertEqual(stats, {"minecraft:sculk_patch:unknown_block": 1})
+
+    def test_missing_blocks_is_recorded(self) -> None:
+        facts = [
+            self._feature(
+                "data/minecraft/worldgen/feature/sculk_patch_deep_dark",
+                ["minecraft:sculk_patch"],
+            )
+        ]
+        rules, stats = worldgen_code_rules(
+            facts, {"minecraft:sculk_patch": {"basis": ""}}, {"minecraft:sculk"}
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(stats, {"minecraft:sculk_patch:no_blocks": 1})
+
+    def test_placed_feature_is_not_a_gate(self) -> None:
+        """`placed_feature` 只引用特征 id，不含类型引用，不能当门控依据。"""
+        facts = [
+            self._feature(
+                "data/minecraft/worldgen/placed_feature/sculk_patch_deep_dark",
+                ["minecraft:sculk_patch_deep_dark"],
+                kind="placed_feature",
+            )
+        ]
+        rules, _ = worldgen_code_rules(
+            facts, self._spec(["minecraft:sculk"]), {"minecraft:sculk"}
+        )
+        self.assertEqual(rules, [])
+
+    def test_multiple_feature_files_of_same_type_collapse(self) -> None:
+        """同一类型有两个特征文件时只发一条规则，meta 记全部来源。"""
+        facts = [
+            self._feature(
+                "data/minecraft/worldgen/feature/sculk_patch_deep_dark",
+                ["minecraft:sculk_patch"],
+            ),
+            self._feature(
+                "data/minecraft/worldgen/feature/sculk_patch_ancient_city",
+                ["minecraft:sculk_patch"],
+            ),
+        ]
+        rules, _ = worldgen_code_rules(
+            facts, self._spec(["minecraft:sculk"]), {"minecraft:sculk"}
+        )
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(len(rules[0].meta["features"]), 2)
 
 
 class ExceptionAttributionTest(unittest.TestCase):

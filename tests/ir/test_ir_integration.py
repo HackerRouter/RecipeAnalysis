@@ -165,7 +165,7 @@ class Compile263Test(_CompileBase, unittest.TestCase):
         self.assertIn(UNOBTAINABLE, reasons)
 
     def test_reachability_meets_m1_floor(self) -> None:
-        """26.3 可达率 ≥ 90%（分母见 ADR 0012）。只钉下界。"""
+        """26.3 可达率 ≥ 90%（分母见 ADR 0009）。只钉下界。"""
         self.assertGreaterEqual(_item_rate(self.reach), 0.90)
 
     def test_universe_is_registry_not_rule_nodes(self) -> None:

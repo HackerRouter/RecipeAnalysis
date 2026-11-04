@@ -272,6 +272,22 @@ SAMPLES_263: tuple[Sample, ...] = (
         note="空地图 + 玩家探索填充；制图师卖的是空地图",
         family=("bridge/entity_behaviour",),
     ),
+    Sample(
+        node="item:minecraft:leather",
+        status="true",
+        covers="实体来源",
+        note="行商羊驼随流浪商人生成、骡由马与驴繁殖；两者的皮革战利品表因此可及",
+        family=("bridge/entity_source",),
+        node_contains=("entity:minecraft:mule", "entity:minecraft:trader_llama"),
+    ),
+    Sample(
+        node="item:minecraft:sculk",
+        status="true",
+        covers="实体行为",
+        note="二腿都在代码里：催发体转化死亡生物，sculk_patch 特征的方块名未写进 feature JSON",
+        family=("bridge/entity_behaviour", "bridge/worldgen_code"),
+        node_contains=("block:minecraft:sculk", "block:minecraft:sculk_catalyst"),
+    ),
 )
 
 
@@ -351,6 +367,14 @@ SAMPLES_1182: tuple[Sample, ...] = (
         status="false",
         covers="无来源",
         reason="unobtainable",
+    ),
+    Sample(
+        node="item:minecraft:leather",
+        status="true",
+        covers="实体来源",
+        note="该版 WanderingTraderSpawner 与马/驴繁殖的写法与 26.3 同构",
+        family=("bridge/entity_source",),
+        node_contains=("entity:minecraft:mule", "entity:minecraft:trader_llama"),
     ),
 )
 
