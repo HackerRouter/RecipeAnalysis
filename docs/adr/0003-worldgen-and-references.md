@@ -40,6 +40,21 @@
 
 适配器只记 `{"slot": "tag", "id": "minecraft:corals"}`，展开放 IR。这一步是语义不是语法。
 
+### 约束子树不是产物
+
+`replaceable_blocks`、`cannot_replace`、`invalid_blocks` 一类键的值是**谓词**，说的是「什么允许被覆盖」。它们与放置提供者同形：
+
+```json
+"replaceable_blocks": {
+  "type": "minecraft:matching_blocks",
+  "blocks": ["minecraft:chorus_plant", "minecraft:crimson_fungus"]
+}
+```
+
+照键名 `blocks` 取值会把整张白名单当产物：巨大菌类（`crimson_fungus`）的可覆盖目标里有 `chorus_plant`，世界生成于是多出一条「`chorus_plant` 来自下界菌类」。约束键必须在递归时整棵跳过，不产 `references`。
+
+判据是**显式列举**（`adapters/worldgen.py` 的 `CONSTRAINT_KEYS`），不用后缀通配：同一层里 `replace_with_blackstone` 是布尔开关、`invalid_blocks_threshold` 是数值，按 `replace`/`invalid` 通配会把它们误当约束键。
+
 ## 二、排序按注册表锚定，不按字段名
 
 `slot` 只有 `block` / `entity` / `tag` / `feature` / `structure` / `template` 几种，其中 **`entity` 是兜底**——无法归类的引用都落在这里，它不代表「实体」。

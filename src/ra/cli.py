@@ -46,7 +46,7 @@ from .probe.registries import Registries
 from .report.drift import compare_ledger
 from .report.paths.store import GRAPH_FILE
 from .util.hashing import sha256_file
-from .util.jsonio import write_json
+from .util.jsonio import write_json, write_jsonl
 
 
 def _pack(args: argparse.Namespace):
@@ -208,7 +208,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         marker = "  <-- 有失败" if cov.failed else ""
         print(
             f"族 {cov.family:<16} {cov.files:>5} 文件  "
-            f"parsed={cov.parsed:<5} skipped={cov.skipped:<5} failed={cov.failed:<4}"
+            f"parsed={cov.parsed:<5} partial={cov.partial:<4} "
+            f"skipped={cov.skipped:<5} failed={cov.failed:<4}"
             f"{marker}"
         )
     if unaccounted:
@@ -579,6 +580,42 @@ def _read_json_optional(path: Path) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    """把事实导成结构布局的三张可查表。
+
+    只读 `output/<label>/facts/`：这些表是事实的下游视图，不重跑探测与适配器。
+    结构与模板之间的拼装关系、容器与方块白名单都在事实里，这一层不读 `inputs/`。
+    """
+    from .report.structure_tables import TABLE_NAMES, build_structure_tables
+
+    root, _, manifest = _pack(args)
+    out_dir = output_dir(root, manifest.label)
+    facts_dir = out_dir / "facts"
+    if not facts_dir.is_dir():
+        print(
+            f"错误：{facts_dir} 不存在，先跑 `ra ingest --label {manifest.label}`",
+            file=sys.stderr,
+        )
+        return 1
+
+    store = FactStore.read(facts_dir, label=manifest.label)
+    tables = build_structure_tables(store)
+    counts: dict[str, int] = {}
+    for name in TABLE_NAMES:
+        counts[name] = write_jsonl(out_dir / f"{name}.jsonl", tables[name])
+        print(f"{name:<20} {counts[name]:>7} 行 -> {out_dir / f'{name}.jsonl'}")
+
+    write_json(
+        out_dir / "exports.json",
+        {
+            "label": manifest.label,
+            "facts_digest": dict(store.kind_counts()),
+            "tables": counts,
+        },
+    )
+    return 0
+
+
 def cmd_guide(args: argparse.Namespace) -> int:
     """把 `output/<label>/` 的探测与产物结论渲染成该版本的适配指南。
 
@@ -689,6 +726,10 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--label", required=True)
     guide.add_argument("--stdout", action="store_true", help="同时打印到终端")
     guide.set_defaults(func=cmd_guide)
+
+    export = sub.add_parser("export", help="把事实导成结构布局的三张可查表")
+    export.add_argument("--label", required=True)
+    export.set_defaults(func=cmd_export)
 
     graph = sub.add_parser("graph", help="把全量关系图落成内部表示文件（供 ra-paths 出图）")
     graph.add_argument("--label", required=True)

@@ -8,6 +8,9 @@
 - `partial`：能取到一部分，`missing` 说明缺什么
 - `failed`：解析失败，`error` 记原因
 
+台账用同一组三态（`LedgerStatus`），并额外允许 `classified_skip`：
+文件整棵不参与推理时记它，必须带规则名。
+
 没有 provenance 的事实不允许入 IR，因此在构造时就强制带 `prov`。
 """
 
@@ -90,6 +93,7 @@ class Fact:
 
 class LedgerStatus(str, Enum):
     PARSED = "parsed"
+    PARTIAL = "partial"
     CLASSIFIED_SKIP = "classified_skip"
     FAILED = "failed"
 
@@ -103,12 +107,15 @@ class LedgerRow:
     family: str = "unclassified"
     rule: str | None = None
     facts: int = 0
+    missing: tuple[str, ...] = ()
     error: str | None = None
     note: str | None = None
 
     def __post_init__(self) -> None:
         if self.status is LedgerStatus.CLASSIFIED_SKIP and not self.rule:
             raise ValueError(f"classified_skip 必须给规则名：{self.file}")
+        if self.status is LedgerStatus.PARTIAL and not self.missing:
+            raise ValueError(f"partial 必须给 missing：{self.file}")
         if self.status is LedgerStatus.FAILED and not self.error:
             raise ValueError(f"failed 必须给 error：{self.file}")
 
@@ -121,6 +128,8 @@ class LedgerRow:
         }
         if self.rule:
             out["rule"] = self.rule
+        if self.missing:
+            out["missing"] = list(self.missing)
         if self.error:
             out["error"] = self.error
         if self.note:
@@ -176,16 +185,19 @@ class Coverage:
     parsed: int
     skipped: int
     failed: int
+    partial: int = 0
 
     @property
     def ratio(self) -> float:
-        return self.parsed / self.files if self.files else 0.0
+        """有产出的文件比例。`partial` 有产出，只是字段不全。"""
+        return (self.parsed + self.partial) / self.files if self.files else 0.0
 
     def as_json(self) -> dict:
         return {
             "family": self.family,
             "files": self.files,
             "parsed": self.parsed,
+            "partial": self.partial,
             "skipped": self.skipped,
             "failed": self.failed,
             "ratio": round(self.ratio, 4),

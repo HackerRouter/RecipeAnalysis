@@ -44,6 +44,7 @@
 | 改路径图的减噪 pass（折叠、压缩、吸收、桶化） | `report/paths/noise.py` | 同上；每个 pass 的计数要能被 `summary.fold_notes` 读到 |
 | 改内部表示格式 | `report/paths/store.py` 的 `GRAPH_SCHEMA` +1 | `tests/unit/test_paths_store.py`；旧文件将不可读，属契约变更 |
 | 改可视化命令行参数 | `report/paths/cli.py`（独立命令 `ra-paths`） | 参数归入减噪 / 展开 / 预算三类之一 |
+| 加一张下游可查表 | `report/structure_tables.py` + `cli.cmd_export` | `tests/ingest/test_structure_tables.py`；表只含事实里已有的字段，不重新解析输入包 |
 
 ### 代码侧提取的留痕层次
 
@@ -68,6 +69,7 @@
 | 链接种类 | `ir/nodes.py` 的 `LINK_KINDS`，与 `adapters/source/idioms/base.py` 的同名常量 | `Link.__post_init__` 校验 |
 | 节点排序 | `ir/nodes.py` 的 `SORTS` | `node()` 校验 |
 | 事实 payload 字段 | 各 `adapters/` 模块的字段白名单 | 未知字段产出 `failed` 事实并记台账 |
+| 台账状态 | `facts/schema.py` 的 `LedgerStatus`，与事实的 `Status` 同义 | `LedgerRow` 构造时校验：`partial` 必须带 `missing` |
 | 关系图内部表示 | `report/paths/store.py` 的 `GRAPH_SCHEMA` | `read_graph` 构造时校验，版本不符即失败 |
 
 不得为减少翻译代码而扩充种类：编译层只认固定词汇表，增加一种就要增加一条翻译路径，漏掉一条即静默丢失一条边，而丢失的边在产物上不可见。

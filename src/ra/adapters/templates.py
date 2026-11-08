@@ -4,19 +4,8 @@
 `net.minecraft.data.Main --dev` 转成 `.snbt`；反编译源码树的同名副本 palette 被抹空，
 只作为退回路径。无论哪种来源，适配器读到的都是**文本** SNBT，不需要 NBT 解析器。
 
-只取四样东西：
-
-- `data[].state` → 方块（palette 条目的引用）
-- `data[].nbt.LootTable` → 方块实体承载的战利品表
-- `data[].nbt.pool` → 拼图池，供 `puts`/`holds` 链使用
-- `entities[]` → 内嵌实体（含装备与手上的物品）
-
-`palette` 全空但格子非空时记 `blocks_unreadable`：那是来源缺了方块身份，
-不是「结构里没有方块」。SNBT 解析失败记 `failed`，不猜。
-
-不引第三方 NBT 库：转换交给 jar 自带的 datagen（`--dev`），适配器只读文本。
-自写读取器比引入依赖便宜，且 `net.minecraft.data.Main` 已顺带做了 `DataFixTypes.STRUCTURE`
-升级与 `packBlockState` 归一，那些才是不自写转换器的真正原因。
+SNBT 读取与 payload 归一见 `ra.mcshared.snbt`；本文件只负责来源选择、
+族级不可用登记与逐文件台账。
 """
 
 from __future__ import annotations
@@ -24,186 +13,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
+from ..mcshared.snbt import SnbtError, normalize_template, parse_snbt, template_id_from_file
 from ..probe.profile import Profile
 from .base import Adapter, record, rel_posix
 from ..paths import pack_data
 
 FAMILY = "template"
 
-
-class SnbtError(ValueError):
-    pass
-
-
-class SnbtReader:
-    """最小 SNBT 读取器：对象、数组、字符串、数字、布尔。
-
-    只解析到「能当 dict / list / 标量用」为止，省略两样东西：
-    一是数值的宽度与类型（`1b` / `1s` / `1f` 一律退化为 int 或 float），
-    二是整型数组的类型前缀含义（`[I;` / `[L;` / `[B;` 统一当成 list），
-    因为结构模板只用到方块名、物品 id 与槽位这些字符串与计数。
-    """
-
-    def __init__(self, text: str) -> None:
-        self.text = text
-        self.pos = 0
-
-    def parse(self) -> object:
-        value = self._value()
-        self._ws()
-        if self.pos != len(self.text):
-            raise SnbtError(f"位置 {self.pos} 后有多余内容")
-        return value
-
-    def _ws(self) -> None:
-        while self.pos < len(self.text) and self.text[self.pos] in " \t\r\n":
-            self.pos += 1
-
-    def _value(self) -> object:
-        self._ws()
-        if self.pos >= len(self.text):
-            raise SnbtError("意外结束")
-        ch = self.text[self.pos]
-        if ch == "{":
-            return self._compound()
-        if ch == "[":
-            return self._list()
-        if ch in "\"'":
-            return self._quoted(ch)
-        return self._bare()
-
-    def _compound(self) -> dict:
-        self.pos += 1  # {
-        out: dict = {}
-        while True:
-            self._ws()
-            if self.pos >= len(self.text):
-                raise SnbtError("compound 未闭合")
-            if self.text[self.pos] == "}":
-                self.pos += 1
-                return out
-            key = self._key()
-            self._ws()
-            if self.pos >= len(self.text) or self.text[self.pos] != ":":
-                raise SnbtError(f"键 {key!r} 后缺冒号")
-            self.pos += 1
-            out[key] = self._value()
-            self._ws()
-            if self.pos < len(self.text) and self.text[self.pos] == ",":
-                self.pos += 1
-
-    def _list(self) -> list:
-        self.pos += 1  # [
-        out: list = []
-        # 类型前缀如 `[I;`、`[L;`、`[B;` 只在整型数组出现，这里按通用数组处理
-        if self.pos + 1 < len(self.text) and self.text[self.pos] in "ILBX" and self.text[self.pos + 1] == ";":
-            self.pos += 2
-        while True:
-            self._ws()
-            if self.pos >= len(self.text):
-                raise SnbtError("list 未闭合")
-            if self.text[self.pos] == "]":
-                self.pos += 1
-                return out
-            out.append(self._value())
-            self._ws()
-            if self.pos < len(self.text) and self.text[self.pos] == ",":
-                self.pos += 1
-
-    def _key(self) -> str:
-        self._ws()
-        if self.pos < len(self.text) and self.text[self.pos] in "\"'":
-            ch = self.text[self.pos]
-            return str(self._quoted(ch))
-        start = self.pos
-        while self.pos < len(self.text) and self.text[self.pos] not in ":,{}[] \t\r\n":
-            self.pos += 1
-        if start == self.pos:
-            raise SnbtError("空键")
-        return self.text[start : self.pos]
-
-    def _quoted(self, quote: str) -> str:
-        self.pos += 1
-        buf: list[str] = []
-        while self.pos < len(self.text):
-            ch = self.text[self.pos]
-            if ch == "\\" and self.pos + 1 < len(self.text):
-                buf.append(self.text[self.pos + 1])
-                self.pos += 2
-                continue
-            if ch == quote:
-                self.pos += 1
-                return "".join(buf)
-            buf.append(ch)
-            self.pos += 1
-        raise SnbtError("字符串未闭合")
-
-    def _bare(self) -> object:
-        start = self.pos
-        while self.pos < len(self.text) and self.text[self.pos] not in ",}] \t\r\n":
-            self.pos += 1
-        token = self.text[start : self.pos]
-        if not token:
-            raise SnbtError("空值")
-        # 数值后缀与布尔后缀都可能出现（`1b`、`false`），先去后缀再判
-        lowered = token.rstrip("bBsSlLfFdD")
-        if lowered in ("true", "false"):
-            return lowered == "true"
-        try:
-            return int(lowered)
-        except ValueError:
-            pass
-        try:
-            return float(lowered)
-        except ValueError:
-            return token
-
-
-def parse_snbt(text: str) -> object:
-    return SnbtReader(text).parse()
-
-
-# 方块实体 NBT 里「装着物品」的键。逐键列举而不是通配 `id`，
-# 因为 `id` 在方块实体里是**方块实体类型**（`minecraft:decorated_pot`），
-# 把它的值当物品会把整棵模板的方块实体都读成物品。
-#
-# | 键 | 载体 | 形状 |
-# |---|---|---|
-# | `sherds` | 饰纹陶罐 | `{back: {id: ...}, front: ...}` |
-# | `Items` | 箱子 / 漏斗 / 发射器 | `[{slot, item: {id, count}}]` |
-# | `item` | 物品展示框 / 盔甲架 | `{id, count}` |
-# | `Book` | 讲台 | `{id: "minecraft:written_book", ...}` |
-# | `RecordItem` | 唱片机 | `{id, count}` |
-NBT_ITEM_KEYS = ("sherds", "Items", "item", "Book", "RecordItem")
-
-
-def _nbt_items(nbt: dict) -> list[tuple[str, str]]:
-    """方块实体 NBT → `[(槽位名, 物品 id)]`。只取已知键，不递归猜。"""
-    out: list[tuple[str, str]] = []
-    for key in NBT_ITEM_KEYS:
-        node = nbt.get(key)
-        if node is None:
-            continue
-        for slot, ident in _walk_item_slots(node, key):
-            out.append((slot, ident))
-    return out
-
-
-def _walk_item_slots(node: object, prefix: str) -> list[tuple[str, str]]:
-    """在 `sherds` / `Items` 这类容器里找 `{id: "..."}` 形态的叶子。"""
-    out: list[tuple[str, str]] = []
-    if isinstance(node, dict):
-        # `{"id": "minecraft:x", ...}` 是一个物品；`{"back": {...}}` 是分槽容器
-        ident = node.get("id")
-        if isinstance(ident, str) and ":" in ident:
-            out.append((prefix, ident))
-            return out
-        for key, value in node.items():
-            out.extend(_walk_item_slots(value, f"{prefix}.{key}"))
-    elif isinstance(node, list):
-        for index, value in enumerate(node):
-            out.extend(_walk_item_slots(value, f"{prefix}[{index}]"))
-    return out
+__all__ = ["SnbtError", "TemplateAdapter", "parse_snbt"]
 
 
 class TemplateAdapter(Adapter):
@@ -305,88 +122,7 @@ class TemplateAdapter(Adapter):
             record(store, file_label, FAMILY, status=LedgerStatus.FAILED, error="顶层不是 compound")
             return
 
-        missing: list[str] = []
-        blocks: list[str] = []
-        block_entity_ids: list[str] = []
-        loot_tables: list[dict] = []
-        pools: list[str] = []
-        item_refs: list[dict] = []
-
-        # 方块身份来自 `data[].state`（即 palette 条目）。第一手模板（jar 内层）
-        # palette 完整；反编译源码树的 26.3 副本被抹成空串，那种情况下只有带方块实体的
-        # 格子还在 `nbt.id` 里保留了身份。
-        # 按解析后的 data 计数：26.3 共 1170664 个 cell，其中 5597 个带 nbt.id。
-        # 两个来源必须分开记，否则下游会把「看不到」当成「没有」。
-        palette = doc.get("palette")
-        palette_filled = 0
-        if isinstance(palette, list):
-            palette_filled = sum(1 for item in palette if isinstance(item, str) and item)
-
-        data = doc.get("data")
-        if not isinstance(data, list):
-            missing.append("缺少 data 数组")
-            data = []
-        for index, cell in enumerate(data):
-            if not isinstance(cell, dict):
-                missing.append(f"data[{index}] 不是 compound")
-                continue
-            state = cell.get("state")
-            if isinstance(state, str) and state:
-                blocks.append(state)
-            nbt = cell.get("nbt")
-            if isinstance(nbt, dict):
-                cell_id = nbt.get("id")
-                if isinstance(cell_id, str):
-                    block_entity_ids.append(cell_id)
-                table = nbt.get("LootTable")
-                if isinstance(table, str):
-                    loot_tables.append({"pos": cell.get("pos"), "table": table})
-                pool = nbt.get("pool")
-                if isinstance(pool, str):
-                    pools.append(pool)
-                for slot, item in _nbt_items(nbt):
-                    item_refs.append(
-                        {"holder": cell_id if isinstance(cell_id, str) else None, "slot": slot, "id": item}
-                    )
-
-        # palette 全空但格子非空：普通方块身份不可得。
-        # 这不是解析失败，而是来源缺陷，必须显式说清。
-        blocks_unreadable = bool(data) and palette_filled == 0
-
-        entities: list[dict] = []
-        raw_entities = doc.get("entities")
-        if isinstance(raw_entities, list):
-            for index, ent in enumerate(raw_entities):
-                if not isinstance(ent, dict):
-                    missing.append(f"entities[{index}] 不是 compound")
-                    continue
-                nbt = ent.get("nbt")
-                entities.append(
-                    {
-                        "blockPos": ent.get("blockPos"),
-                        "id": nbt.get("id") if isinstance(nbt, dict) else None,
-                        "has_equipment": bool(
-                            isinstance(nbt, dict)
-                            and (nbt.get("ArmorItems") or nbt.get("HandItems"))
-                        ),
-                    }
-                )
-
-        payload = {
-            "template": file_label[:-5].split("/structure/")[-1].split("/structures/")[-1],
-            "size": doc.get("size"),
-            "data_version": doc.get("DataVersion"),
-            "palette_size": len(palette) if isinstance(palette, list) else None,
-            "palette_filled": palette_filled,
-            "blocks": sorted(set(blocks)),
-            "block_count": len(blocks),
-            "block_entity_ids": sorted(set(block_entity_ids)),
-            "blocks_unreadable": blocks_unreadable,
-            "loot_tables": loot_tables,
-            "jigsaw_pools": pools,
-            "item_refs": item_refs,
-            "entities": entities,
-        }
+        payload, missing = normalize_template(doc, template_id_from_file(file_label))
 
         status = Status.PARTIAL if missing else Status.PARSED
         store.add(
@@ -398,4 +134,4 @@ class TemplateAdapter(Adapter):
                 missing=tuple(missing),
             )
         )
-        record(store, file_label, FAMILY, facts=1)
+        record(store, file_label, FAMILY, facts=1, missing=tuple(missing))

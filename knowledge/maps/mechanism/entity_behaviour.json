@@ -99,6 +99,22 @@
     "evidence": "SculkCatalystBlockEntity.CatalystListener#handleGameEvent：事件为 ENTITY_DIE 且生物 shouldDropExperience 时 sculkSpreader.addCursors(...)，然后由 SculkSpreader 逐格消耗电量；SculkVeinBlock#attemptPlaceSculk 放 Blocks.SCULK，SculkBlock#getRandomGrowthState 以 1/11 概率放 SCULK_SHRIEKER、其余放 SCULK_SENSOR"
   },
 
+  "torchflower_crop": {
+    "produces": ["block:minecraft:torchflower"],
+    "actor": "block:minecraft:torchflower_crop",
+    "inputs": [],
+    "basis": "火把花作物长到最大年龄时整株换成火把花方块；种子先种出作物。不走 transform_conventions：`_crop` 后缀不可判——同样以 `_crop` 结尾的 `pitcher_crop` 成熟后仍是自身方块（双高作物只推 age），按后缀配对会留下一半配不上的条目",
+    "evidence": "TorchflowerCropBlock#getStateForAge(int)：age == 2 时返回 Blocks.TORCHFLOWER.defaultBlockState()，其余年龄走 CropBlock 的作物状态；MAX_AGE = 2、getBaseSeedId 返回 Items.TORCHFLOWER_SEEDS"
+  },
+
+  "wither_rose": {
+    "produces": ["block:minecraft:wither_rose"],
+    "actor": "entity:minecraft:wither",
+    "inputs": ["assume:mob_spawn"],
+    "basis": "凋灵击杀生物时在该生物位置开出凋灵玫瑰；不能放置时改为掉物品形态，挖方块与捡起得到同一物品",
+    "evidence": "LivingEntity#createWitherRose(killer)：killer instanceof WitherBoss 时，若 MOB_GRIEFING 开启且位置为空气并 canSurvive 则 setBlockAndUpdate(pos, Blocks.WITHER_ROSE.defaultBlockState())，否则 new ItemEntity(..., new ItemStack(Items.WITHER_ROSE))"
+  },
+
   "chipped_anvil": {
     "produces": ["block:minecraft:chipped_anvil"],
     "actor": "block:minecraft:anvil",

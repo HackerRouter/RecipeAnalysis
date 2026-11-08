@@ -21,6 +21,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
+from ..mcshared.trades import level as _level
+from ..mcshared.trades import parse_item_stack, segment as _segment, trade_id as _trade_id
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
 from .base import Adapter, iter_json_files, record, rel_posix
@@ -31,27 +33,7 @@ FAMILY = "trade"
 LAYER_OFFER = "offer"
 LAYER_SET = "set"
 
-
-def parse_item_stack(node: object) -> dict | None:
-    """`{id, count, components}` → 归一形状。也接受裸字符串。"""
-    if isinstance(node, str):
-        return {"id": node, "count": 1}
-    if not isinstance(node, dict):
-        return None
-    ident = node.get("id") or node.get("item")
-    if not isinstance(ident, str):
-        return None
-    out: dict = {"id": ident}
-    count = node.get("count", node.get("amount", 1))
-    out["count"] = count if isinstance(count, int) else 1
-    for key in ("components", "count_range"):
-        if key in node:
-            out[key] = node[key]
-    # 未归一的字段原样留着，由 IR 决定是不是前置
-    rest = {k: v for k, v in node.items() if k not in ("id", "item", "count", "amount")}
-    if rest:
-        out["extra"] = rest
-    return out
+__all__ = ["TradeAdapter", "parse_item_stack"]
 
 
 class TradeAdapter(Adapter):
@@ -183,7 +165,7 @@ class TradeAdapter(Adapter):
                 missing=tuple(missing),
             )
         )
-        record(store, file_label, FAMILY, facts=1)
+        record(store, file_label, FAMILY, facts=1, missing=tuple(missing))
 
     # ---- 交易组 --------------------------------------------------------
 
@@ -209,11 +191,17 @@ class TradeAdapter(Adapter):
         if not isinstance(amount, int):
             missing.append("amount 不是整数")
 
+        level = _level(file_label, "trade_set")
+        if level is None:
+            # 流浪商人的交易组不按等级划分。缺这一项不影响引用关系，
+            # 但下游按（职业, 等级）索引时会落空，必须显式说出来。
+            missing.append("level 无法确定：该交易组不按等级划分")
+
         payload = {
             "layer": LAYER_SET,
             "set": _trade_id(file_label, "trade_set", namespace),
             "profession": _segment(file_label, "trade_set", 0),
-            "level": _level(file_label, "trade_set"),
+            "level": level,
             "trades_ref": ref,
             "amount": amount if isinstance(amount, int) else None,
             "random_sequence": doc.get("random_sequence"),
@@ -237,7 +225,7 @@ class TradeAdapter(Adapter):
                 missing=tuple(missing),
             )
         )
-        record(store, file_label, FAMILY, facts=1)
+        record(store, file_label, FAMILY, facts=1, missing=tuple(missing))
 
     # ---- 公共 ----------------------------------------------------------
 
@@ -251,36 +239,3 @@ class TradeAdapter(Adapter):
             record(store, file_label, FAMILY, status=LedgerStatus.FAILED, error="顶层不是对象")
             return None
         return doc
-
-
-def _trade_id(file_label: str, dirname: str, namespace: str) -> str:
-    marker = f"/{dirname}/"
-    if marker in file_label:
-        return f"{namespace}:{file_label.partition(marker)[2][:-5]}"
-    return file_label[:-5]
-
-
-def _segment(file_label: str, dirname: str, index: int) -> str | None:
-    """交易路径是 `<职业>/<等级>/<名>.json`，取第 index 段。"""
-    marker = f"/{dirname}/"
-    if marker not in file_label:
-        return None
-    parts = file_label.partition(marker)[2].split("/")
-    return parts[index] if len(parts) > index + 1 else None
-
-
-def _level(file_label: str, dirname: str) -> int | None:
-    """取等级。交易组是 `level_N.json`，单条交易是 `<职业>/<N>/<名>.json`。"""
-    marker = f"/{dirname}/"
-    if marker not in file_label:
-        return None
-    parts = file_label.partition(marker)[2].split("/")
-
-    for part in parts[1:]:
-        stem = part[:-5] if part.endswith(".json") else part
-        if stem.startswith("level_"):
-            tail = stem[len("level_") :]
-            return int(tail) if tail.isdigit() else None
-        if stem.isdigit():
-            return int(stem)
-    return None

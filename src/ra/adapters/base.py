@@ -35,15 +35,19 @@ def record(
     family: str,
     *,
     facts: int = 0,
-    status: LedgerStatus = LedgerStatus.PARSED,
+    status: LedgerStatus | None = None,
+    missing: tuple[str, ...] = (),
     rule: str | None = None,
     error: str | None = None,
     note: str | None = None,
 ) -> None:
     """登记一行的台账。
 
-    台账与事实同源：产出事实就记 parsed；没产出就要说清是「整棵排除」还是「失败」。
+    台账与事实同源：产出事实就记 `parsed`；缺项但仍有产出记 `partial` 并把
+    `missing` 原样写上；没产出就要说清是「整棵排除」还是「失败」。
     """
+    if status is None:
+        status = LedgerStatus.PARTIAL if missing else LedgerStatus.PARSED
     store.ledger.add(
         LedgerRow(
             file=file,
@@ -51,6 +55,7 @@ def record(
             family=family,
             rule=rule,
             facts=facts,
+            missing=tuple(missing),
             error=error,
             note=note,
         )

@@ -63,6 +63,29 @@ PLACEMENT_KEYS = {
 # 与约束类标签（`cannot_replace` 之类）不是一回事，所以逐键列举、不用后缀通配。
 TAG_PLACEMENT_KEYS = frozenset({"blocks"})
 
+# 约束类键：值是「允许被覆盖的目标」，不是放置物。整棵子树跳过。
+#
+# 它们的形状可以和放置键完全一致——`crimson_fungus` 的 `replaceable_blocks` 就是
+# `{"type": "matching_blocks", "blocks": [...]}`，与随机放置提供者同形。只按键名
+# `blocks` 取值会把整张白名单当产物：巨大菌类的可覆盖目标里含 `chorus_plant`，
+# 于是世界生成凭空多出一条「chorus_plant 来自下界菌类」。
+#
+# 逐键列举，不用后缀通配：`replace_with_blackstone` 是布尔开关，
+# `invalid_blocks_threshold` 是数值，按后缀通配会把它们也当成约束键。
+CONSTRAINT_KEYS = frozenset(
+    {
+        "replaceable_blocks",
+        "replaceable",
+        "root_replaceable",
+        "rottable_blocks",
+        "cannot_replace",
+        "invalid_blocks",
+        "can_replace",
+        "can_replace_with_air_or_fluid",
+        "can_replace_with_barrier",
+    }
+)
+
 # 参数型世界生成注册表：它们只提供数值/参数，本就不表达放置关系。
 # 无 `type` 不代表解析不全，只代表这类资源没有产出语义。
 PARAMETRIC_KINDS = frozenset(
@@ -178,6 +201,18 @@ class WorldgenAdapter(Adapter):
         if spawns:
             payload["spawns"] = spawns
 
+        # 结构内部布局（拼图）：起始池与深度上限在结构侧，池内元素在模板池侧。
+        # 两者都是拼装关系的语法，不判断「这个模板会不会真的被拼上」。
+        if kind in ("structure", "configured_structure_feature"):
+            start_pool = body.get("start_pool")
+            if isinstance(start_pool, str):
+                payload["start_pool"] = start_pool
+            size = body.get("size")
+            if isinstance(size, int):
+                payload["size"] = size
+        elif kind == "template_pool":
+            payload["elements"] = _pool_elements(body.get("elements"))
+
         # 参数型注册表（noise、density_function 等）本就不含放置关系，无 type 不是缺陷
         resource_only = not references and payload["type"] is None
         if resource_only:
@@ -200,6 +235,9 @@ def _collect_refs(node: object, out: list[dict], depth: int, limit: int = 12) ->
         if slot is not None:
             out.append({"slot": slot, "id": str(node.get("id") or node.get("Name"))})
         for key, value in node.items():
+            if key in CONSTRAINT_KEYS:
+                # 约束子树记的是「什么可以被覆盖」，照它产事实等于把白名单当产物。
+                continue
             slot = PLACEMENT_KEYS.get(key) or _slot_of_state_key(key) or _slot_of_entry(key, node)
             if slot and isinstance(value, str):
                 if _looks_like_id(value):
@@ -216,6 +254,40 @@ def _collect_refs(node: object, out: list[dict], depth: int, limit: int = 12) ->
     elif isinstance(node, list):
         for item in node:
             _collect_refs(item, out, depth + 1, limit)
+
+
+def _pool_elements(raw: object) -> list[dict]:
+    """模板池的 `elements` → `[{element_type, location, weight}]`。
+
+    池内的嵌套写法（`list_pool_element` 的 `elements`）就地展开，并标 `nested`：
+    嵌套元素的权重是它所在列表内的相对值，与顶层不是同一分母。
+    """
+    out: list[dict] = []
+    _collect_pool_elements(raw, out, nested=False)
+    return out
+
+
+def _collect_pool_elements(raw: object, out: list[dict], nested: bool) -> None:
+    if not isinstance(raw, list):
+        return
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        element = item.get("element")
+        if not isinstance(element, dict):
+            continue
+        weight = item.get("weight")
+        location = element.get("location")
+        if isinstance(location, str):
+            entry = {
+                "element_type": _local(element.get("element_type")),
+                "location": location,
+                "weight": weight if isinstance(weight, int) else 1,
+            }
+            if nested:
+                entry["nested"] = True
+            out.append(entry)
+        _collect_pool_elements(element.get("elements"), out, nested=True)
 
 
 def _collect_spawns(raw: object) -> list[dict]:

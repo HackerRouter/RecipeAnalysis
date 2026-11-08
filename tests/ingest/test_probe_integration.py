@@ -224,6 +224,26 @@ class IngestCoverageTest(unittest.TestCase):
         # 交易组必须引用标签
         self.assertTrue(all(f.payload["trades_ref"] for f in sets))
 
+    def test_level_less_trade_sets_are_partial(self) -> None:
+        """流浪商人的交易组不按等级划分：缺 level 必须留痕，不能静默。"""
+        sets = [f for f in self.store.of_kind("trade") if f.payload["layer"] == "set"]
+        level_less = [f for f in sets if f.payload["level"] is None]
+        self.assertEqual(
+            {f.payload["set"] for f in level_less},
+            {
+                "minecraft:wandering_trader/buying",
+                "minecraft:wandering_trader/common",
+                "minecraft:wandering_trader/uncommon",
+            },
+        )
+        for fact in level_less:
+            self.assertEqual(fact.status.value, "partial")
+            self.assertTrue(fact.missing)
+        partial_rows = {
+            row.file for row in self.store.ledger.rows if row.status.value == "partial"
+        }
+        self.assertLessEqual({f.prov.file for f in level_less}, partial_rows)
+
     def test_trade_set_references_resolve(self) -> None:
         """交易组引用的标签必须真的存在，否则交易链断了。"""
         trade_tags = {

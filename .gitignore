@@ -18,3 +18,7 @@ __pycache__/
 *.pyo
 *.egg-info/
 .pytest_cache/
+
+# 共用解析层：junction 到 BingoItemGrading 的 src/mcshared，物理只有一份。
+# 链接不能进版本库（git 会把它当普通目录，把同一份代码再提交一遍）。
+src/ra/mcshared/

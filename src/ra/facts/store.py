@@ -112,13 +112,15 @@ class FactStore:
     def coverage(self) -> list[Coverage]:
         """按族（来源族）统计文件覆盖率。"""
         stats: dict[str, dict[str, int]] = defaultdict(
-            lambda: {"files": 0, "parsed": 0, "skipped": 0, "failed": 0}
+            lambda: {"files": 0, "parsed": 0, "partial": 0, "skipped": 0, "failed": 0}
         )
         for row in self.ledger.rows:
             slot = stats[row.family]
             slot["files"] += 1
             if row.status is LedgerStatus.PARSED:
                 slot["parsed"] += 1
+            elif row.status is LedgerStatus.PARTIAL:
+                slot["partial"] += 1
             elif row.status is LedgerStatus.CLASSIFIED_SKIP:
                 slot["skipped"] += 1
             else:
@@ -128,6 +130,7 @@ class FactStore:
                 family=family,
                 files=slot["files"],
                 parsed=slot["parsed"],
+                partial=slot["partial"],
                 skipped=slot["skipped"],
                 failed=slot["failed"],
             )

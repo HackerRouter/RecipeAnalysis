@@ -24,5 +24,11 @@
     "blocks": ["minecraft:sculk"],
     "basis": "sculk_patch 特征从原点向外扩散，把可替换方块换成幽匿方块并长出幽匿脉络",
     "evidence": "SculkPatchFeature#place 建 SculkSpreader.createWorldGenSpreader() 后逐轮 updateCursors；ChargeCursor#update 调 SculkBehaviour#attemptSpreadVein，SculkVeinBlock#attemptPlaceSculk 里 level.setBlockAndUpdate(supportPos, Blocks.SCULK.defaultBlockState())。feature/sculk_patch_*.json 只有 charge_count / amount_per_charge / spread_attempts 等参数，没有方块字段，所以 references 里只有同文件的 simple_block 放下的 sculk_catalyst / sculk_shrieker"
+  },
+
+  "minecraft:chorus_plant": {
+    "blocks": ["minecraft:chorus_plant", "minecraft:chorus_flower"],
+    "basis": "紫颂特征在末地生成整株紫颂：先铺连接体，再按分支规则在末端长出带年龄的紫颂花",
+    "evidence": "ChorusPlantFeature#place 调 ChorusFlowerBlock.generatePlant(level, origin, random, 8)；generatePlant 先 level.setBlock(target, ChorusPlantBlock.getStateWithConnections(..., Blocks.CHORUS_PLANT.defaultBlockState()), 2)，分支末端执行 level.setBlock(current.above(height), Blocks.CHORUS_FLOWER.defaultBlockState().setValue(AGE, 5), 2)。feature/chorus_plant.json 只有 type，没有方块字段"
   }
 }

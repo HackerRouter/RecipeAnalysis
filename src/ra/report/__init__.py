@@ -15,12 +15,14 @@ from .reachability import (
     write_json,
     write_reachability,
 )
+from .structure_tables import build_structure_tables
 
 __all__ = [
     "ReachabilityReport",
     "build_coverage",
     "build_reachability",
     "build_run_manifest",
+    "build_structure_tables",
     "compare_ledger",
     "gap_rows",
     "write_json",

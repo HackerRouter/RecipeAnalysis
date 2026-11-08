@@ -72,6 +72,15 @@
 
 合并成一个字段会让下游分不清两者。`nbt.id` 不是方块全量：普通方块的类型只能从 `data[].state` 取。`.snbt` 副本与 jar 副本的 `palette` 有值项对比、`nbt.id` 计数用 `tools/checks/check-template-nbt-id.py`。
 
+**容器身份与方块格数分开记**：
+
+| 字段 | 来源 | 含义 |
+|---|---|---|
+| `loot_tables` | `data[].nbt.LootTable` + `nbt.id` | 容器坐标、战利品表、方块实体类型 |
+| `block_counts` | `data[].state` 计数 | 每个状态串在模板里的格数 |
+
+`blocks` 是去重后的状态串列表，`block_count` 是总格数，两者都无法回答「这个方块在模板里有几个」。
+
 方块名比对前要剥到第一个 `{` 或 `[`——取值带方块状态（`minecraft:grass_block{snowy:false}`），注册表里是裸名。
 
 **模板 NBT 里的实体是某些实体的唯一数据包踪迹。** `entities[].id` 给出该格子里的实体；
@@ -112,6 +121,10 @@
 方块引用有四种写法，判据见 [ADR 0003](adr/0003-worldgen-and-references.md)：带属性表的状态对象、无属性表的状态对象、加权表项、裸 id 列表，另有标签引用。枚举验证用 `tools/probes/probe-worldgen-refs.py`。
 
 `slot=tag` 不由适配器展开：标签名不是方块，展开属 IR 的语义。
+
+**拼图结构的内部布局分两处**：结构 JSON 的 `start_pool` 与 `size` 给起始池与拼装深度上限，`template_pool` 的 `elements` 给候选模板与权重。池内 `list_pool_element` 的嵌套成员摊平后带 `nested`——它们的权重与顶层不是同一分母，不得混算权重和。
+
+池还能经模板的拼图方块（`jigsaw_pools`）继续向下展开，所以结构到模板是传递闭包，不是一跳。
 
 **方块引用来自 JSON 是常态，不是全部。** 有一类特征只在 JSON 里写参数，方块名落在实现类里：
 `feature/sculk_patch_deep_dark.json` 只有电量与扩散次数，`Blocks.SCULK` 在
@@ -250,6 +263,10 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 代码侧则是 `MerchantOffer(costA, costB, result, …)` 的两个支付位。附魔书要绿宝石 +
 书、藏宝图要绿宝石 + 指南针。只取第一个支付物会得到「绿宝石换附魔书」，把书这个
 前提抹掉（[ADR 0006](adr/0006-trades.md)）。
+
+**交易组不按等级划分时 `level` 缺席**：流浪商人的 `buying` / `common` / `uncommon`
+三个交易组没有等级段。事实标 `partial` 并写 `missing`，台账同步标 `partial`——
+下游按（职业, 等级）索引时能识别落空，而不是拿到一个无法区分的空键。
 
 **流浪商人的交易表与职业村民不在一处。** 1.18.x 是独立的
 `VillagerTrades.WANDERING_TRADER_TRADES`（`toIntMap(ImmutableMap.of(1, new ItemListing[]{…}, 2, …))`），

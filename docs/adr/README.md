@@ -14,3 +14,4 @@
 | [`0008-code-side-extraction.md`](0008-code-side-extraction.md) | 结构生成代码、生物桶、目录约定兜底与适配器约束 |
 | [`0009-report-artifacts.md`](0009-report-artifacts.md) | 物品全集与可达率分母、关系图的内部表示与渲染分离 |
 | [`0010-testing.md`](0010-testing.md) | 测试框架选型与版本过滤的生效时机 |
+| [`0011-structure-layout-exports.md`](0011-structure-layout-exports.md) | 结构布局的三张白名单表、拼图关系进事实、台账三态 |
