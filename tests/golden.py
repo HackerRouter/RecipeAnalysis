@@ -107,8 +107,9 @@ SAMPLES_263: tuple[Sample, ...] = (
         node="item:minecraft:white_wool",
         status="true",
         covers="变体",
-        note="26.3 的剪毛表在数据包 shearing/ 下；1.18.2 在 Sheep.java",
-        family=("loot",),
+        note="26.3 的剪毛表在数据包 shearing/ 下，由目录约定挂到实体并带剪刀前置；1.18.2 在 Sheep.java",
+        family=("loot", "bridge/table"),
+        node_contains=("entity:minecraft:sheep", "tool:minecraft:shears"),
     ),
     Sample(
         node="item:minecraft:dragon_head",
@@ -288,6 +289,14 @@ SAMPLES_263: tuple[Sample, ...] = (
         family=("bridge/entity_behaviour", "bridge/worldgen_code"),
         node_contains=("block:minecraft:sculk", "block:minecraft:sculk_catalyst"),
     ),
+    Sample(
+        node="item:minecraft:milk_bucket",
+        status="true",
+        covers="交互来源",
+        note="对牛/蘑菇牛/山羊用铁桶挤奶；该机制没有配方也没有战利品表",
+        family=("bridge/entity_behaviour",),
+        node_contains=("entity:minecraft:cow", "item:minecraft:bucket"),
+    ),
 )
 
 
@@ -355,12 +364,12 @@ SAMPLES_1182: tuple[Sample, ...] = (
         family=("code/villager_trades",),
     ),
     Sample(
-        node="item:minecraft:waxed_copper_block",
+        node="item:minecraft:zombie_head",
         status="false",
         covers="未知依赖",
         reason="blocked",
-        note="有方块战利品表，但方块本身不可得（上蜡铜块不能挖，只能对铜块上蜜蜡）",
-        missing_any=("table:minecraft:blocks/waxed_copper_block",),
+        note="有方块战利品表，但方块本身不可得：僵尸头不靠挖掘，只由闪电苦力怕炸出",
+        missing_any=("table:minecraft:blocks/zombie_head",),
     ),
     Sample(
         node="item:minecraft:bedrock",
@@ -375,6 +384,14 @@ SAMPLES_1182: tuple[Sample, ...] = (
         note="该版 WanderingTraderSpawner 与马/驴繁殖的写法与 26.3 同构",
         family=("bridge/entity_source",),
         node_contains=("entity:minecraft:mule", "entity:minecraft:trader_llama"),
+    ),
+    Sample(
+        node="item:minecraft:honeycomb",
+        status="true",
+        covers="交互来源",
+        note="该版没有 harvest/ 战利品表：蜂巢产蜜脾写在 BeehiveBlock#use 里，剪刀是硬前置",
+        family=("bridge/entity_behaviour",),
+        node_contains=("block:minecraft:beehive", "tool:minecraft:shears"),
     ),
 )
 

@@ -43,8 +43,16 @@ class StructureTablesBase:
     def blocks(self) -> list[dict]:
         return self.tables["template_blocks"]
 
+    def code_containers(self) -> list[dict]:
+        return self.tables["structure_containers"]
+
     def test_tables_are_not_empty(self) -> None:
-        for name in ("structures", "template_containers", "template_blocks"):
+        for name in (
+            "structures",
+            "template_containers",
+            "template_blocks",
+            "structure_containers",
+        ):
             self.assertTrue(self.tables[name], name)
 
     def test_village_plains_lists_all_pools(self) -> None:
@@ -73,9 +81,32 @@ class StructureTablesBase:
     def test_containers_carry_identity_only(self) -> None:
         for row in self.containers():
             self.assertTrue(row["template"])
-            self.assertTrue(row["table"].startswith("minecraft:"))
-            self.assertIsInstance(row["pos"], list)
+            if row["table"] is None:
+                self.assertEqual(row.get("loot_bound"), "code", row["template"])
+            else:
+                self.assertTrue(row["table"].startswith("minecraft:"))
             self.assertNotIn("count", row, "容器表只给身份，不给数量")
+            if row.get("via") == "template":
+                self.assertIsInstance(row["pos"], list)
+            else:
+                self.assertIsNone(row["pos"], "处理器注入的容器没有坐标")
+
+    def test_code_bound_containers_are_listed(self) -> None:
+        """模板里有容器、表不在 NBT 里的结构必须出行，否则会被读成「没有容器」。"""
+        families = {
+            row["template"].split("/", 1)[0]
+            for row in self.containers()
+            if row.get("loot_bound") == "code"
+        }
+        self.assertIn("shipwreck", families)
+        self.assertIn("end_city", families)
+
+    def test_slot_holders_are_not_containers(self) -> None:
+        """篝火、熔炉也带物品槽，但不承载战利品表，不得计入容器。"""
+        kinds = {row["block_entity"] for row in self.containers()}
+        self.assertNotIn("minecraft:campfire", kinds)
+        self.assertNotIn("minecraft:furnace", kinds)
+        self.assertNotIn("minecraft:brewing_stand", kinds)
 
     def test_village_house_chest_is_listed(self) -> None:
         found = [
@@ -106,15 +137,86 @@ class StructureTablesBase:
         }
         self.assertTrue(any("half:" in (state or "") for state in states))
 
+    def test_code_containers_join_worldgen(self) -> None:
+        """代码侧容器行必须回连到世界生成事实里的结构 id。"""
+        for row in self.code_containers():
+            self.assertTrue(row["structures"], row["structure_type"])
+            self.assertTrue(row["table"].startswith("minecraft:"))
+            self.assertGreaterEqual(row["sites"], 1)
+            self.assertTrue(row["sources"], row["structure_type"])
+
+    def test_template_less_structure_has_code_containers(self) -> None:
+        """要塞没有任何模板，三张模板表里一条也不会有，只能靠代码侧那张。"""
+        rows = [
+            row
+            for row in self.code_containers()
+            if row["structure_type"] == "minecraft:stronghold"
+        ]
+        self.assertEqual(
+            {row["table"] for row in rows},
+            {
+                "minecraft:chests/stronghold_corridor",
+                "minecraft:chests/stronghold_crossing",
+                "minecraft:chests/stronghold_library",
+            },
+        )
+        for row in rows:
+            self.assertEqual(row["structures"], ["minecraft:stronghold"])
+            self.assertEqual(row["container"], "chest")
+
 
 @unittest.skipUnless(pack("26.3"), why("26.3"))
 class StructureTables263Test(StructureTablesBase, unittest.TestCase):
     label = "26.3"
 
+    def test_nested_template_ids_are_complete(self) -> None:
+        """`ancient_city/structures/*` 的模板不能被截成裸名。"""
+        names = {row["template"] for row in self.containers()}
+        self.assertIn("ancient_city/structures/barracks", names)
+
+    def test_processor_injected_containers_are_exported(self) -> None:
+        """处理器附加战利品的方块不在模板 NBT 里，必须从处理器定义导出。"""
+        rows = [
+            row
+            for row in self.containers()
+            if row.get("via") == "processor" and row["template"].startswith("trail_ruins/")
+        ]
+        self.assertTrue(rows)
+        by_processor = {(row["processor"], row["table"]): row for row in rows}
+        common = by_processor[
+            ("minecraft:trail_ruins_houses_archaeology", "minecraft:archaeology/trail_ruins_common")
+        ]
+        rare = by_processor[
+            ("minecraft:trail_ruins_houses_archaeology", "minecraft:archaeology/trail_ruins_rare")
+        ]
+        roads = by_processor[
+            ("minecraft:trail_ruins_roads_archaeology", "minecraft:archaeology/trail_ruins_common")
+        ]
+        self.assertEqual(common["limit"], 6)
+        self.assertEqual(rare["limit"], 3)
+        self.assertEqual(roads["limit"], 2)
+        self.assertEqual(common["block_entity"], "minecraft:suspicious_gravel")
+        self.assertIsNone(common["pos"])
+
+    def test_shipwreck_markers_are_exported(self) -> None:
+        """船骸按标记选表，标记名与表必须一起导出。"""
+        rows = [
+            row for row in self.code_containers() if row["structure_type"] == "minecraft:shipwreck"
+        ]
+        markers = {marker for row in rows for marker in row.get("markers", [])}
+        self.assertEqual(markers, {"map_chest", "supply_chest", "treasure_chest"})
+
 
 @unittest.skipUnless(pack("1.18.2"), why("1.18.2"))
 class StructureTables1182Test(StructureTablesBase, unittest.TestCase):
     label = "1.18.2"
+
+    def test_structure_type_ids_are_this_versions(self) -> None:
+        """1.18.2 的类型 id 是 `mansion` / `jungle_pyramid`，不是新版的叫法。"""
+        types = {row["structure_type"] for row in self.code_containers()}
+        self.assertIn("minecraft:mansion", types)
+        self.assertIn("minecraft:jungle_pyramid", types)
+        self.assertNotIn("minecraft:woodland_mansion", types)
 
 
 if __name__ == "__main__":

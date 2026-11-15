@@ -155,6 +155,17 @@ class TemplateFactsBase:
         with_loot = sum(1 for f in self.facts() if f.payload["loot_tables"])
         self.assertGreater(with_loot, 100, "箱子表数量异常偏少")
 
+    def test_containers_are_the_superset(self) -> None:
+        """`loot_tables` 是 `containers` 里有表的那些，两者不得各算一套。"""
+        for fact in self.facts():
+            with_table = [item for item in fact.payload["containers"] if item["table"]]
+            self.assertEqual(with_table, fact.payload["loot_tables"], fact.payload["template"])
+            self.assertEqual(
+                fact.payload["container_count"],
+                len(fact.payload["containers"]),
+                fact.payload["template"],
+            )
+
     def test_jigsaw_pools_survive(self) -> None:
         with_pools = sum(1 for f in self.facts() if f.payload["jigsaw_pools"])
         self.assertGreater(with_pools, 500)

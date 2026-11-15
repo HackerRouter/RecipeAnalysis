@@ -19,10 +19,13 @@ from .idioms.buckets import exported as bucket_idioms
 from .idioms.death_drops import exported as death_drop_idioms
 from .idioms.drops import exported as drop_idioms
 from .idioms.fluid_buckets import exported as fluid_bucket_idioms
+from .idioms.interact import exported as interact_idioms
 from .idioms.loot_alias import exported as alias_idioms
 from .idioms.place import exported as place_idioms
 from .idioms.piglin_barter import exported as piglin_barter_idioms
+from .idioms.raid_waves import exported as raid_wave_idioms
 from .idioms.sheep import exported as sheep_idioms
+from .idioms.structure_containers import exported as structure_container_idioms
 from .idioms.structure_entities import exported as structure_entity_idioms
 from .idioms.structure_gadgets import exported as gadget_idioms
 from .idioms.trades import exported as trade_idioms
@@ -61,8 +64,11 @@ def default_idioms() -> list[Idiom]:
         *drop_idioms(),
         *bucket_idioms(),
         *fluid_bucket_idioms(),
+        *interact_idioms(),
+        *raid_wave_idioms(),
         *gadget_idioms(),
         *structure_entity_idioms(),
+        *structure_container_idioms(),
         *death_drop_idioms(),
     ]
 
@@ -151,7 +157,7 @@ class SourceAdapter(Adapter):
                     f"idiom:{idiom.id}",
                     "命中 0 条",
                     "该惯用法在本版可能改了实现或整族搬走；"
-                    "判据见 docs/facts-<版本>.md 的代码侧获取关系一节",
+                    "判据见 docs/shapes.md 与 docs/adr/ 下对应主题",
                 )
             elif count < idiom.min_hits:
                 store.extra.setdefault("low_yield_idioms", []).append(

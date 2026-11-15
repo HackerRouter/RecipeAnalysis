@@ -33,6 +33,7 @@ KINDS = (
     "worldgen",
     "spawner_config",
     "template",
+    "structure_container",
     "block_transform",
     "code_link",
     "pack_delta",

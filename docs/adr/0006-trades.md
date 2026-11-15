@@ -79,6 +79,65 @@ Link(head=…, via=(), inputs=("assume:villager_trade", "item:emerald", …))
 
 `NOT_A_LISTING`（`ItemStack`、`MerchantOffer` 出现在交易数组里，属匿名 `ItemListing` 的 `getOffer` 体）是正常写法，但必须显式登记理由，否则真正的「未登记交易类」会和噪音混在一起看不出。
 
+## 四、交易参数按构造器体回取
+
+经验值、使用次数、价格浮动在代码侧是构造器实参，在数据包侧是 JSON 字段。两侧统一成同一组 `meta` 键：`xp` / `max_uses` / `price_multiplier`。
+
+反编译后的形参名是 `n` / `n2` / `n3`，**不能靠名字判断语义**。判据是构造器体里的字段赋值：
+
+```java
+this.maxUses = n3;
+this.villagerXp = n4;
+this.priceMultiplier = f;
+```
+
+实参按形参下标回取。只做委托的重载要沿位置回溯：`ItemsForEmeralds` 的 4 参版本是 `this(new ItemStack(item), n, n2, 12, n3);`——`maxUses` 固定成常量 12，`xp` 来自第 4 个形参。
+
+| 做法 | 错在哪 |
+|---|---|
+| 按形参位置写死一套下标 | 同类不同重载的位置不同（4 参 `ItemsForEmeralds` 的 xp 在第 4 位，5 参在第 5 位），按一套读另一套会把使用次数当成经验值 |
+| 按形参名取 | 反编译后全是 `n`/`n2`/`n3` |
+| 实参不是字面量时猜一个值 | 记 `unresolved_<字段>` 留痕；猜值会让下游把「没取到」当成真实数值 |
+| 用普通逗号切分来数形参个数 | 泛型里的逗号会被当成顶层分隔（`Map<VillagerType, Item> map` 拆成两段），形参个数多一，`(类名, 实参个数)` 键全部对不上——这两类交易会静默丢掉经验值 |
+
+### 缺省值补上，但要标出来
+
+数据包写法是 `optionalFieldOf`，缺字段不等于 0：`VillagerTrade.CODEC` 里 `max_uses` 默认 4、`xp` 默认 1、`reputation_discount` 默认 0.0。事实里按默认值补齐，并把补过的键记进 `meta.defaults`。
+
+| 做法 | 错在哪 |
+|---|---|
+| 缺字段就留空 | 下游把「没有经验值」读成 0，而游戏实际给 1；一整档经验凭空消失，且从数据上看不出是缺省还是真值 |
+| 补上但不标记 | 「显式写了 1」与「缺省得到 1」变成同一事实，日后核对时无法判断数据包是否真的改了 |
+
+## 五、共用条目目录不是职业
+
+`villager_trade/smith/` 的三条交易（煤炭换绿宝石、铁锭换绿宝石、绿宝石换钟）不属于某个职业：它们通过 `#minecraft:common_smith/level_N` 被盔甲匠、工具匠、武器匠三家的标签同时引用。
+
+判据是**首段是否在 `trade_set/` 的子目录集合里**：不在的是共用条目，记 `profession = null` 与 `shared_group`。分组名从标签目录读（`common_smith`），不按「`common_` + 首段」拼——目录名与分组名不会总是一致，拼错会让下游多出一个不存在的分组。
+
+| 做法 | 错在哪 |
+|---|---|
+| 把目录首段一律当职业 | 按职业汇总时多出一个不存在的 `smith`；下游按 `(profession, level)` 索引会漏掉这 3 条 |
+| 共用条目不给前提 | 它们的前提仍是「村民交易可发生」，只是没有专属职业 |
+
+### 归属从交易组正向展开，不靠目录名
+
+`shared_group` 只说明「这条不专属某个职业」，真实归属要另求：从 `trade_set/<职业>/level_N` 出发，它的 `trades` 是标签 id，递归展开 `#` 嵌套标签即可得到该组包含的全部条目，反向建出「条目 → [(职业, 等级)]」。
+
+```
+trade_set/armorer/level_1        trades: "#minecraft:armorer/level_1"
+tags/villager_trade/armorer/level_1  values: ["#minecraft:common_smith/level_1", …]
+tags/villager_trade/common_smith/level_1  values: ["minecraft:smith/1/coal_emerald"]
+```
+
+共用条目的 `applies_to` 就是这个反查结果，一条可以同时属于几个职业。只有共用条目产 `applies_to`：其余条目的归属与路径一致，不必重复记。标签嵌套要有深度上限（实测两层，给 8 层防环）。
+
+| 做法 | 错在哪 |
+|---|---|
+| 把条目复制成 N 条 | 事实数随共用次数变化，同一条目的身份也丢了；下游按条目去重时会把它们当成不同交易 |
+| 只按标签名对目录名做连接 | `common_smith` 与 `smith` 的对应不是字符串关系，换一个版本就可能变成别的名字 |
+| 不检查孤儿条目 | 结构若改成「条目不再被任何组引用」，整批交易会静默失效；未被任何 `trade_set` 引用的条目必须留痕 |
+
 ## 换一种做法会错在哪
 
 - **按类名猜方向**：`EmeraldForItems(Items.WHEAT, 20, …)` 是「20 小麦换 1 绿宝石」，名字读起来是反的。唯一可靠依据是 `MerchantOffer(costA, result, …)` / `(costA, costB, result, …)` 的参数顺序

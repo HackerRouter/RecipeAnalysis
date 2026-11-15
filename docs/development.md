@@ -44,7 +44,7 @@
 | 改路径图的减噪 pass（折叠、压缩、吸收、桶化） | `report/paths/noise.py` | 同上；每个 pass 的计数要能被 `summary.fold_notes` 读到 |
 | 改内部表示格式 | `report/paths/store.py` 的 `GRAPH_SCHEMA` +1 | `tests/unit/test_paths_store.py`；旧文件将不可读，属契约变更 |
 | 改可视化命令行参数 | `report/paths/cli.py`（独立命令 `ra-paths`） | 参数归入减噪 / 展开 / 预算三类之一 |
-| 加一张下游可查表 | `report/structure_tables.py` + `cli.cmd_export` | `tests/ingest/test_structure_tables.py`；表只含事实里已有的字段，不重新解析输入包 |
+| 加一张下游可查表 | `report/<主题>_tables.py` + `cli.cmd_export` | `tests/ingest/` 下同主题的测试；表只含事实里已有的字段，不重新解析输入包 |
 
 ### 代码侧提取的留痕层次
 

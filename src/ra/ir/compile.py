@@ -81,6 +81,10 @@ class CompileReport:
     harvest_tools: int = 0
     harvest_unreadable: list[str] = field(default_factory=list)
     harvest_unresolved_refs: dict[str, int] = field(default_factory=dict)
+    # 工具要求明细：方块 → 最低等级 / 最弱合格工具；以及「有等级但无合格工具」的缺口
+    harvest_levels: dict[str, str] = field(default_factory=dict)
+    harvest_capabilities: dict[str, list[str]] = field(default_factory=dict)
+    harvest_gaps: list[str] = field(default_factory=list)
     # 工具要求整族不可用时的原因（旧版本没有组件系统）
     harvest_unavailable: str = ""
     dynamic_tables: list[str] = field(default_factory=list)
@@ -144,6 +148,11 @@ class CompileReport:
             "harvest_tools": self.harvest_tools,
             "harvest_unreadable": self.harvest_unreadable,
             "harvest_unresolved_refs": self.harvest_unresolved_refs,
+            "harvest_gaps": self.harvest_gaps,
+            "harvest_level_counts": {
+                level: sum(1 for value in self.harvest_levels.values() if value == level)
+                for level in sorted(set(self.harvest_levels.values()))
+            },
             "harvest_unavailable": self.harvest_unavailable,
             "dynamic_table_count": len(self.dynamic_tables),
             "missing_stations": self.missing_stations,
@@ -224,6 +233,11 @@ def compile_ir(store: FactStore, root: Path) -> tuple[RuleSet, CompileReport]:
     report.harvest_tools = harvest.tools
     report.harvest_unreadable = list(harvest.unreadable_tools)
     report.harvest_unresolved_refs = dict(harvest.unresolved_refs)
+    report.harvest_levels = dict(harvest.levels)
+    report.harvest_capabilities = {
+        block: list(tools) for block, tools in harvest.capabilities.items()
+    }
+    report.harvest_gaps = list(harvest.gaps)
     if harvest.tools == 0:
         # 旧版（组件系统之前）没有 `minecraft:tool`，工具要求整族不可用。
         # 必须显式登记：否则「路径里没有工具」与「根本没有这条链」在产物上

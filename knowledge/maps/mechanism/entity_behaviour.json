@@ -86,6 +86,46 @@
     "evidence": "worldgen/feature 里没有 bee_nest 方块引用；树用 decorator 挂蜂巢，decorator 只有概率没有方块名（JSON 里是 {type: minecraft:beehive, probability: 0.2}），方块名写在 BeehiveDecorator 代码里"
   },
 
+  "honeycomb_from_beehive": {
+    "produces": ["item:minecraft:honeycomb"],
+    "actor": "block:minecraft:beehive",
+    "inputs": ["tool:minecraft:shears"],
+    "basis": "蜂巢/蜂箱的蜂蜜等级满 5 时用剪刀剪下 3 个蜜脾，方块回落到空巢",
+    "evidence": "BeehiveBlock#use：itemStack.is(Items.SHEARS) 时调 dropHoneycomb。1.18.2 的 dropHoneycomb 直接 new ItemStack(Items.HONEYCOMB, 3)；26.3 改调 dropFromBlockInteractLootTable(HARVEST_BEEHIVE)，此时本条的产出与数据包表重合，两条路径都成立"
+  },
+
+  "honey_bottle_from_beehive": {
+    "produces": ["item:minecraft:honey_bottle"],
+    "actor": "block:minecraft:beehive",
+    "inputs": ["item:minecraft:glass_bottle"],
+    "basis": "蜂蜜等级满 5 时用玻璃瓶对蜂巢/蜂箱取蜜，空瓶换成蜂蜜瓶",
+    "evidence": "BeehiveBlock#use：itemStack.is(Items.GLASS_BOTTLE) 时 shrink 一瓶并 setItemInHand(new ItemStack(Items.HONEY_BOTTLE))，两版形态相同。26.3 另有一条配方（蜂蜜块 + 玻璃瓶），但它反向依赖蜂蜜块，不构成入口"
+  },
+
+  "milk_bucket_from_cow": {
+    "produces": ["item:minecraft:milk_bucket"],
+    "actor": "entity:minecraft:cow",
+    "inputs": ["item:minecraft:bucket"],
+    "basis": "对成年牛用铁桶挤奶，空桶换成牛奶桶",
+    "evidence": "AbstractCow#mobInteract（1.18.2 在 Cow 类内）：itemStack.is(Items.BUCKET) 且 !isBaby() 时 ItemUtils.createFilledResult(itemStack, player, Items.MILK_BUCKET.getDefaultInstance())"
+  },
+
+  "milk_bucket_from_mooshroom": {
+    "produces": ["item:minecraft:milk_bucket"],
+    "actor": "entity:minecraft:mooshroom",
+    "inputs": ["item:minecraft:bucket"],
+    "basis": "蘑菇牛继承牛的挤奶交互，同样用铁桶换成牛奶桶",
+    "evidence": "MushroomCow extends Cow 且不覆写 mobInteract，机制写在 AbstractCow#mobInteract；单独的条目是因为实体注册名是 mooshroom，不是 mushroom_cow"
+  },
+
+  "milk_bucket_from_goat": {
+    "produces": ["item:minecraft:milk_bucket"],
+    "actor": "entity:minecraft:goat",
+    "inputs": ["item:minecraft:bucket"],
+    "basis": "对成年山羊用铁桶挤奶，空桶换成牛奶桶（山羊奶与牛奶是同一物品）",
+    "evidence": "Goat#mobInteract 覆写了同一判断：itemStack.is(Items.BUCKET) 且 !isBaby() 时换成 Items.MILK_BUCKET"
+  },
+
   "sculk_from_catalyst": {
     "produces": [
       "block:minecraft:sculk",

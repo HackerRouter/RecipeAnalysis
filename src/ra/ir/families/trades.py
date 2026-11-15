@@ -119,7 +119,17 @@ def compile_trades(facts: list[Fact], item_ids: set[str]) -> TradesCompileResult
             result.unresolved[f"wants:{missing[0]}"] += 1
             continue
 
-        result.by_profession[str(payload.get("profession") or "?")] += 1
+        applies = payload.get("applies_to")
+        if isinstance(applies, list) and applies:
+            # 共用条目同时属于几个职业：按真实归属各计一次，而不是记成
+            # 一个不存在的分组名。
+            for entry in applies:
+                if isinstance(entry, dict):
+                    result.by_profession[str(entry.get("profession") or "?")] += 1
+        else:
+            result.by_profession[
+                str(payload.get("profession") or payload.get("shared_group") or "?")
+            ] += 1
         assumed = _assumption(payload.get("profession"))
         result.rules.append(
             Rule(
@@ -131,6 +141,8 @@ def compile_trades(facts: list[Fact], item_ids: set[str]) -> TradesCompileResult
                 meta={
                     "trade": payload.get("trade"),
                     "profession": payload.get("profession"),
+                    "shared_group": payload.get("shared_group"),
+                    "applies_to": payload.get("applies_to"),
                     "level": payload.get("level"),
                     "layer": payload.get("layer"),
                     "gives_count": (payload.get("gives") or {}).get("count")

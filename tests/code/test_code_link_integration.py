@@ -324,6 +324,21 @@ class TradeExtractionTest(unittest.TestCase):
         self.assertTrue(maps, "藏宝图交易未被提取")
         self.assertIn("item:minecraft:compass", maps[0].payload["link"]["inputs"])
 
+    def test_trade_parameters_are_extracted(self) -> None:
+        """经验值、使用次数、价格浮动按构造器体的字段赋值取，不从形参名猜。"""
+        facts = self.trades()
+        with_xp = [f for f in facts if "xp" in f.payload["meta"]]
+        self.assertGreater(len(with_xp), len(facts) * 0.9, "多数交易应带经验值")
+        for fact in facts:
+            meta = fact.payload["meta"]
+            self.assertNotIn(
+                True,
+                [key.startswith("unresolved_") for key in meta],
+                f"{meta.get('shape')} 有取不到的参数：{meta}",
+            )
+            if "xp" in meta:
+                self.assertIsInstance(meta["xp"], int)
+
     def test_coverage_is_reported_honestly(self) -> None:
         """不允许静默少抽。
 

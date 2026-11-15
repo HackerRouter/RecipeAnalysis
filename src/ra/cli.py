@@ -391,6 +391,24 @@ def cmd_run(args: argparse.Namespace) -> int:
         for row in gaps:
             handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
+    # 工具要求明细：方块 → 最低等级 / 最弱合格工具。下游直接消费，不再自己
+    # 读标签或从工具组件反推；`tools` 导出为物品 ID（去掉 `tool:` 节点前缀）。
+    with (out_dir / "harvest.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
+        for block in sorted(
+            set(compile_report.harvest_levels) | set(compile_report.harvest_capabilities)
+        ):
+            tools = [
+                value.split(":", 1)[1] if value.startswith("tool:") else value
+                for value in compile_report.harvest_capabilities.get(block) or ()
+            ]
+            row = {
+                "block": block,
+                "tool_level": compile_report.harvest_levels.get(block),
+                "tools": tools,
+                "gap": block in set(compile_report.harvest_gaps),
+            }
+            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+
     total = sum(reachability.counts.values())
     print(f"规则         {compile_report.rule_counts}")
     print(f"播种         {len(compile_report.seeds)} 个节点（assume + world）")
@@ -410,7 +428,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"缺设备物品   {compile_report.missing_stations[:8]}")
     if unaccounted:
         print(f"未交代文件   {len(unaccounted)}（详见 ingest）")
-    print(f"\n写入 {out_dir}（reachability / coverage / run / gaps）")
+    print(f"\n写入 {out_dir}（reachability / coverage / run / gaps / harvest）")
     return 0
 
 
@@ -581,11 +599,13 @@ def _read_json_optional(path: Path) -> dict | None:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
-    """把事实导成结构布局的三张可查表。
+    """把事实导成可查表：结构布局四张 + 刷怪表一张。
 
     只读 `output/<label>/facts/`：这些表是事实的下游视图，不重跑探测与适配器。
-    结构与模板之间的拼装关系、容器与方块白名单都在事实里，这一层不读 `inputs/`。
+    结构与模板之间的拼装关系、容器与方块白名单、刷怪权重都在事实里，
+    这一层不读 `inputs/`。
     """
+    from .report.spawn_tables import TABLE_SPAWNS, build_spawn_tables
     from .report.structure_tables import TABLE_NAMES, build_structure_tables
 
     root, _, manifest = _pack(args)
@@ -600,8 +620,9 @@ def cmd_export(args: argparse.Namespace) -> int:
 
     store = FactStore.read(facts_dir, label=manifest.label)
     tables = build_structure_tables(store)
+    tables.update(build_spawn_tables(store))
     counts: dict[str, int] = {}
-    for name in TABLE_NAMES:
+    for name in (*TABLE_NAMES, TABLE_SPAWNS):
         counts[name] = write_jsonl(out_dir / f"{name}.jsonl", tables[name])
         print(f"{name:<20} {counts[name]:>7} 行 -> {out_dir / f'{name}.jsonl'}")
 
@@ -727,7 +748,7 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--stdout", action="store_true", help="同时打印到终端")
     guide.set_defaults(func=cmd_guide)
 
-    export = sub.add_parser("export", help="把事实导成结构布局的三张可查表")
+    export = sub.add_parser("export", help="把事实导成可查表（结构布局、刷怪权重）")
     export.add_argument("--label", required=True)
     export.set_defaults(func=cmd_export)
 

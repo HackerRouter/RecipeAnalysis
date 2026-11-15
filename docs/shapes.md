@@ -72,12 +72,19 @@
 
 合并成一个字段会让下游分不清两者。`nbt.id` 不是方块全量：普通方块的类型只能从 `data[].state` 取。`.snbt` 副本与 jar 副本的 `palette` 有值项对比、`nbt.id` 计数用 `tools/checks/check-template-nbt-id.py`。
 
+**模板 ID 是模板根之后的全部路径**：`data/<ns>/<模板目录>/x/y.snbt` → `x/y`。模板自身可以含与根目录同名的子目录（`ancient_city/structures/barracks`），按目录名再切一次会把 ID 截成裸名，join 不上任何引用。
+
 **容器身份与方块格数分开记**：
 
 | 字段 | 来源 | 含义 |
 |---|---|---|
-| `loot_tables` | `data[].nbt.LootTable` + `nbt.id` | 容器坐标、战利品表、方块实体类型 |
+| `containers` | `data[].nbt` 的 `LootTable`，或空的 `Items` | 战利品容器坐标、方块实体类型、战利品表（可缺） |
+| `loot_tables` | 同上，只取有表的 | 表已知的容器子集 |
 | `block_counts` | `data[].state` 计数 | 每个状态串在模板里的格数 |
+
+容器判据是「能挂表 + 还没有内容」：`LootTable` 引用，或 `Items` 为空且方块实体属于实现 `RandomizableContainer` 的那批（箱子、木桶、漏斗、投掷器、潜影盒、饰纹陶罐、合成器）。`Items` 非空的格子不算战利品容器——内容已经确定，逐件记在 `item_refs` 里；篝火、熔炉、酿造台也带 `Items` 槽，却从不承载表，混进来会让「每个结构几个箱子」偏大。
+
+**`containers[].table` 可以为 null**：有些结构的箱子在模板里，表却由生成代码在运行时挂上（船骸、末地城、庄园），模板 NBT 里没有 `LootTable` 一项。只记有表的容器会让这些结构在导出表里整族缺席。`container_count` 是容器格数，`loot_tables` 保留为有表的子集，既有消费方按「一行必带表」读取不受影响。
 
 `blocks` 是去重后的状态串列表，`block_count` 是总格数，两者都无法回答「这个方块在模板里有几个」。
 
@@ -114,7 +121,7 @@
 **「放置了什么」与「冒出什么」是两个不同的问题**：
 
 - `references` 记放置的方块、模板、特征、结构、标签，每条 `{slot, id}`。
-- `spawns` 记结构 JSON 的 `spawn_overrides` 冒出的实体。
+- `spawns` 记刷怪条目：结构来自 `spawn_overrides`，群系来自自然刷怪表。每条 `{category, entity, weight, count_min, count_max}`。
 
 `slot` 只有 `block` / `entity` / `tag` / `feature` / `structure` / `template` 几种，其中 **`entity` 是兜底**——无法归类的引用都落在这里，它不代表「实体」。
 
@@ -126,6 +133,8 @@
 
 池还能经模板的拼图方块（`jigsaw_pools`）继续向下展开，所以结构到模板是传递闭包，不是一跳。
 
+**处理器可以把方块换成带战利品表的方块**：`processor_list` 里的 `block_entity_modifier: {type: append_loot, loot_table: ...}` 配 `output_state`（可疑沙 / 砾石），`capped.limit` 限每片段最多替换几处。这类容器不在模板 NBT 里，模板侧看不到；池元素的 `processors` 记录该模板应用了哪些处理器。
+
 **方块引用来自 JSON 是常态，不是全部。** 有一类特征只在 JSON 里写参数，方块名落在实现类里：
 `feature/sculk_patch_deep_dark.json` 只有电量与扩散次数，`Blocks.SCULK` 在
 `SculkVeinBlock#attemptPlaceSculk`。这类由
@@ -135,7 +144,40 @@
 门控要匹配 `references` 里的 id，不是特征 JSON 的顶层 `type`：顶层往往只是容器
 （`sequence`），真正的特征类型是 `features` 数组里的元素。
 
+**结构容器也可能只存在于生成代码里。** 下界要塞、要塞、废弃矿井没有模板，容器与表都在拼装器代码里；船骸、末地城、庄园的模板有箱子但没有 `LootTable`。这类绑定记成 `structure_container` 事实，三跳全部取自代码：
+
+1. `StructureType.register("<id>", <类>.CODEC)`（26.x）或 `StructureFeature.register("<id>", new <类>(...))`（1.18.2）
+2. 结构类正文里引用、且在索引里真实存在的 `*Pieces` / `*Piece` 类
+3. 拼装器正文里 `BuiltInLootTables.<常量>` 所在语句
+
+容器形态按语句里的调用名判：`createChest` → `chest`，`createDispenser` → `dispenser`，`Map.of("标记", 常量)` → `marker`（另给 `marker` 字段），`archyRuleProcessor` / `AppendLoot` → `processor`，`setLootTable` / `setBlockEntityLootTable` → 语句含 `chest` 时 `chest` 否则 `block_entity`。判定前先抹掉常量文本，否则 `IGLOO_CHEST` 这类名字会反过来影响形态判断。
+
 **空 `spawn_overrides` 不等同于缺陷**：「结构内不额外刷怪」与「结构不存在」是两个不同的结论。结构整体的刷怪配置与刷怪笼配置也相互独立，后者是单独的事实种类。
+
+**群系刷怪表两版位置不同，条目字段也不同**：
+
+| 版本 | 位置 | 条目 |
+|---|---|---|
+| 新版 | `attributes["minecraft:gameplay/natural_mob_spawns"].argument.spawns_by_category` | `type` / `weight` / `count`（整数或 `{min_inclusive, max_inclusive}`） |
+| 旧版 | 顶层 `spawners` | `type` / `weight` / `minCount` / `maxCount` |
+
+结构与群系的刷怪条目在事实里归一成同一组字段，数量拆成 `count_min` / `count_max`。
+`weight` 是同一持有者、同一类别内的**相对**权重，折算概率要由消费方分组求和，适配器不做。
+`spawn_costs`（同种生物刷多了变贵的能量预算）原样保留，键是实体 id。判据与取舍见 [ADR 0013](adr/0013-spawn-tables.md)。
+
+**模板里的刷怪笼方块实体**由 `SpawnPotentials` / `SpawnData` 两个键识别，不按方块名（这个方块改过名）。两者并存时只取 `SpawnPotentials`：`SpawnData` 只是其中一项的初值，重复记会让同一实体出现两次。
+
+**试炼刷怪笼配置的字段**（`data/<ns>/trial_spawner/**`）：
+
+| 字段 | 含义 | 事实里的处理 |
+|---|---|---|
+| `spawn_potentials` | 刷什么 + 相对权重 | `entities[{id, weight, equipment}]` |
+| `loot_tables_to_eject` | 打完弹什么表 + 相对权重 | `eject_tables`，不祥钥匙就在这张表里 |
+| `simultaneous_mobs*` / `total_mobs*` / `ticks_between_spawn` | 难度参数 | `difficulty` 原值，不折算 |
+
+`normal` 与 `ominous` 两套配置同形，靠路径末段区分；后者只在玩家带不祥之兆时启用。
+
+**袭击波次不在数据包里**：`Raid$RaiderType` 枚举给出「实体 → 每波基础数量」的数组，下标即波次（`groupNumber = groupsSpawned + 1`，第 0 位不被读取）。波数由难度的 `numGroups` 决定（简单 3、普通 5、困难 7），奖励波取数组的 `[numGroups]` 项。判据见 [ADR 0013](adr/0013-spawn-tables.md#五波次是独立的一维不能折算成总数)。
 
 ## 运行期导出
 
@@ -210,6 +252,15 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 
 **条目类型**共 9 种：`empty`、`item`、`loot_table`、`dynamic`、`tag`、`slots`、`alternatives`、`sequence`、`group`。`dynamic` 条目必须显式登记，不能静默跳过。
 
+**摊平不等于丢语义。** 逐条目一行时仍要带两样东西：
+
+| 字段 | 何时出现 | 读法 |
+|---|---|---|
+| `weight` / `quality` | 原数据写了才出 | `weight ?? 1`、`quality ?? 0`；缺省与显式 1 是不同事实 |
+| `group_id` / `group_kind` | 容器行给自己，子条目给所在分组 | 容器行 `children > 0`；`group_kind` 取 `alternatives` / `sequence` / `group` |
+
+分组 id 用路径（`p<池>e<下标>`，子层缀 `c<下标>`），不用计数器：计数器在同一张表里重复运行不稳定，跨版本 diff 对不上。只留 `children` 计数时，「二选一」与「全都给」在产物上无法区分，期望值无从谈起。
+
 **借用他人的表**：有一类方块自己没有表，而在注册时挂上另一个方块的表，数据包里看不到这层关系。判据是注册调用里的借用写法（`dropsLike` / `wallVariant` 一类）。这类产出的表 id 是按方块名推的，必须与 `loot_table` 事实比对，不存在的记 `failed`。
 
 **「箱子表属于哪个结构」必须从模板与 `template_pool` 处理器推**，无法从战利品表侧反推。
@@ -232,6 +283,12 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 （`chests/` `archaeology/` `pots/` `gameplay/` …）在
 `knowledge/maps/mechanism/table_providers.json` 里登记一条假设节点。
 
+**顶层 `type` 是触发语义，不是持有者。** `block_interact`、`entity_interact`、
+`shearing` 三类由交互触发；「对什么用、要什么工具」写在
+`dropFrom*InteractLootTable` 的调用点所在的类里。按表名首段猜目标会错：
+`harvest/cave_vine` 的目标方块是 `cave_vines`。判据与反例见
+[ADR 0012](adr/0012-interaction-sources.md)。
+
 目录约定是**兜底**，不是分类依据：同一首段下可以混着互不相干的机制。
 `gameplay/` 就同时有钓鱼、猪灵以物易物、袭击后村民送礼、嗅探兽挖掘与生物被动
 产出。付款物在代码里写明的那几条必须由 idiom 出事实——取值顺序是事实优先，
@@ -253,7 +310,12 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 
 **交易标签的 ID 同样不含注册表子目录**。
 
-**`profession` 决定前提，不由等级决定**：目录第一段就是职业（`villager_trade/<profession>/…`）。
+**`profession` 决定前提，不由等级决定**：目录第一段是职业（`villager_trade/<profession>/…`），
+但**不总是**——首段不在 `trade_set/` 子目录集合里的是**共用条目目录**（`smith/` 的
+三条交易被盔甲匠、工具匠、武器匠通过 `#minecraft:common_smith/level_N` 共用），
+记 `profession = null` + `shared_group`（分组名从标签目录读，不按 `common_` + 首段拼）。
+真实归属另由 `applies_to` 给出：从 `trade_set` 的 `trades` 标签递归展开 `#` 嵌套，
+反向得到「条目 → [(职业, 等级)]」，一条可属于多个职业。
 `wandering_trader` 单独用 `assume:wandering_trader`，其余职业共用 `assume:villager_trade`——
 两者前提不同（流浪商人随机生成、不补货、不依赖村庄），见
 [ADR 0006](adr/0006-trades.md)。等级缺席（`level = null`）是目录
@@ -280,6 +342,18 @@ arg2/arg3；7 参重载显式给出，整体后移一位。判据是实参个数
 `EnchantedItemForEmeralds` / `EnchantBookForEmeralds` / `TippedArrowForItemsAndEmeralds` /
 `DyedArmorForEmeralds`（代码）都属于这一类：附魔、药水、染料是随机的，物品 id 不变。
 不要拆成 `enchant:*` 节点——那会把「随机附魔」说成「确定附魔」。
+
+**交易参数两版形态不同，事实里同名。** 数据包是字段（`xp` / `max_uses` /
+`reputation_discount` / `price_multiplier`，`xp` 可缺）；代码是构造器实参，字段名是
+`villagerXp` / `maxUses` / `priceMultiplier`。代码侧判据是**构造器体里的字段赋值**
+（`this.villagerXp = n4;`），不是实参位置——反编译后形参名是 `n`/`n2`/`n3`，
+且同类不同重载的位置不同；只做委托的重载沿位置回溯（`ItemsForEmeralds` 的 4 参
+版本把 `maxUses` 固定成 12）。取不到的实参记 `unresolved_<字段>`，不猜值。
+
+**缺字段按 codec 默认补上并标记**：`VillagerTrade.CODEC` 里 `max_uses` 默认 4、
+`xp` 默认 1、`reputation_discount` 默认 0.0。补齐的键记进 `meta.defaults`——
+「显式写了 1」与「缺省得到 1」是不同事实，不能因为值相同就合并。
+见 [ADR 0006](adr/0006-trades.md#四交易参数按构造器体回取)。
 
 ## 默认组件
 

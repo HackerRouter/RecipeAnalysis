@@ -135,6 +135,9 @@ def table_provider_rules(
     | `assume` | 给定的假设节点 |
     | `holds_only` | 不接（等事实） |
 
+    两种 kind 都可带 `requires`：触发该表还得有这些东西（剪取表要剪刀）。
+    前置直接进 body——没有工具就触发不了，与「表属于谁」同属硬条件。
+
     名字对不上注册表就记 `convention_miss`，不静默丢弃。
     """
     stats: Counter = Counter()
@@ -162,13 +165,24 @@ def table_provider_rules(
             stats["no_provider"] += 1
             continue
 
-        spec = providers.get(segments[0])
+        # 最长前缀匹配：先试完整路径（`spawners/ominous`），再逐段退回首段（`spawners`）。
+        # 只按首段匹配不够——同一个首段下可以有普通与不祥两套前提不同的装置。
+        spec = None
+        for take in range(len(segments), 0, -1):
+            candidate = providers.get("/".join(segments[:take]))
+            if isinstance(candidate, dict):
+                spec = candidate
+                break
         if not isinstance(spec, dict):
             stats["no_provider"] += 1
             continue
 
         kind = spec.get("kind")
         stats[f"kind:{kind}"] += 1
+
+        requires = tuple(
+            item for item in (spec.get("requires") or []) if isinstance(item, str)
+        )
 
         if kind == "holds_only":
             # 该目录的表只能由事实挂，等 code_link，不做约定
@@ -184,7 +198,7 @@ def table_provider_rules(
                 Rule(
                     id=f"bridge:table:{table_id}",
                     head=head,
-                    body=(target,),
+                    body=(target, *requires),
                     kind="holds",
                     family="bridge/table",
                     meta={"basis": spec.get("basis", "")},
@@ -217,7 +231,7 @@ def table_provider_rules(
             Rule(
                 id=f"bridge:table:{table_id}",
                 head=head,
-                body=(body,),
+                body=(body, *requires),
                 kind="holds",
                 family="bridge/table",
                 meta={"basis": f"目录约定 {segments[0]}/"},

@@ -286,6 +286,75 @@ class LootDialectTest(unittest.TestCase):
         self.assertEqual(missing, [])
         self.assertEqual([r["name"] for r in rows], [None, "minecraft:gravel", "minecraft:flint"])
 
+    def test_children_carry_group_identity(self) -> None:
+        """子条目必须能看出属于哪个分组、分组是哪种语义。"""
+        rows, _ = walk_entry(
+            {
+                "type": "minecraft:alternatives",
+                "children": [
+                    {"type": "minecraft:item", "name": "minecraft:gravel"},
+                    {"type": "minecraft:item", "name": "minecraft:flint"},
+                ],
+            }
+        )
+        self.assertEqual(rows[0]["group_id"], "e0")
+        self.assertEqual(rows[0]["group_kind"], "alternatives")
+        for row in rows[1:]:
+            self.assertEqual(row["group_id"], "e0")
+            self.assertEqual(row["group_kind"], "alternatives")
+
+    def test_weight_only_when_declared(self) -> None:
+        """缺省与显式 1 是不同的事实：前者省略字段，后者写出来。"""
+        default, _ = walk_entry({"type": "minecraft:item", "name": "minecraft:stone"})
+        explicit, _ = walk_entry(
+            {"type": "minecraft:item", "name": "minecraft:stone", "weight": 1}
+        )
+        self.assertNotIn("weight", default[0])
+        self.assertNotIn("quality", default[0])
+        self.assertEqual(explicit[0]["weight"], 1)
+
+    def test_weight_and_quality_are_numbers(self) -> None:
+        rows, _ = walk_entry(
+            {
+                "type": "minecraft:item",
+                "name": "minecraft:leather",
+                "weight": 20,
+                "quality": 2,
+            }
+        )
+        self.assertEqual(rows[0]["weight"], 20)
+        self.assertIsInstance(rows[0]["weight"], int)
+        self.assertEqual(rows[0]["quality"], 2)
+
+    def test_group_ids_are_paths(self) -> None:
+        """同一张表里的分组 id 不重复：池序号 + 条目下标 + `c` 子层。"""
+        from ra.adapters.loot import fact_payload, normalize_table
+
+        table = normalize_table(
+            {
+                "pools": [
+                    {
+                        "rolls": 1,
+                        "entries": [
+                            {
+                                "type": "minecraft:alternatives",
+                                "children": [
+                                    {"type": "minecraft:item", "name": "minecraft:gravel"},
+                                    {"type": "minecraft:item", "name": "minecraft:flint"},
+                                ],
+                            },
+                            {"type": "minecraft:item", "name": "minecraft:stick", "weight": 2},
+                        ],
+                    }
+                ]
+            },
+            "minecraft:test",
+        )
+        entries = fact_payload(table)["pools"][0]["entries"]
+        self.assertEqual([row["group_id"] for row in entries[:3]], ["p0e0", "p0e0", "p0e0"])
+        self.assertNotIn("group_id", entries[3], "顶层普通条目不属于任何分组")
+        self.assertEqual(entries[3]["weight"], 2)
+
     def test_unknown_entry_kind_is_reported(self) -> None:
         _, missing = walk_entry({"type": "minecraft:not_a_real_entry"})
         self.assertTrue(any("未登记的条目类型" in m for m in missing))

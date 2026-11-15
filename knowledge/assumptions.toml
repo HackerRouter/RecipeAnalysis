@@ -74,6 +74,15 @@ basis = """
 不按结构名归类（类名与结构 ID 不一一对应：OceanMonumentPieces → monument）。
 """
 
+[assumes.trial_chamber]
+node = "assume:trial_chamber"
+survival = true
+basis = """
+试炼密室里的装置可被使用：试炼刷怪笼能打完并弹出奖励表，宝库能用钥匙打开。
+与 structure_loot 分开：试炼的产物不是箱子里的东西，而是通关奖励。
+不判密室位置与探索成本。
+"""
+
 [assumes.nether]
 node = "assume:nether"
 survival = true
@@ -83,3 +92,21 @@ basis = "玩家能建造并点燃下界传送门进入下界"
 node = "assume:end"
 survival = true
 basis = "玩家能进入末地；进入方式（要塞+末影之眼）由配方与结构事实给出"
+
+[assumes.ominous]
+node = "assume:ominous"
+survival = true
+basis = """
+玩家可带不祥之兆（trial_omen 或会被转成它的 bad_omen）。
+它决定三处产物：靠近试炼刷怪笼时刷怪笼转为不祥并用不祥配置、不祥试炼完成后弹出不祥钥匙、以及袭击的触发。
+不判不祥之兆的取得方式与持续时间。
+"""
+
+[assumes.raid]
+node = "assume:raid"
+survival = true
+basis = """
+袭击可发生：玩家带不祥之兆进入村庄即触发。
+波数由难度决定（简单 3、普通 5、困难 7），另有一波奖励波；具体每波刷什么与刷几只由代码给出（见 ADR 0013）。
+不判触发概率、村庄位置与是否被提前阻止。
+"""

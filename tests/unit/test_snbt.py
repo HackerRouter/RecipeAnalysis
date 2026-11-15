@@ -7,6 +7,29 @@ from __future__ import annotations
 import unittest
 
 from ra.adapters.templates import SnbtError, parse_snbt
+from ra.mcshared.snbt import template_id_from_file
+
+
+class TemplateIdTest(unittest.TestCase):
+    """模板 ID 取模板根之后的全部路径，不按目录名再切一次。"""
+
+    def test_nested_structures_directory_is_kept(self) -> None:
+        # 模板自身含 `structures/` 子目录时，旧的按子串切法会截成 `barracks`
+        self.assertEqual(
+            template_id_from_file("data/minecraft/structure/ancient_city/structures/barracks.snbt"),
+            "ancient_city/structures/barracks",
+        )
+
+    def test_top_level_template(self) -> None:
+        self.assertEqual(
+            template_id_from_file("data/minecraft/structure/empty.snbt"), "empty"
+        )
+
+    def test_plural_template_dir(self) -> None:
+        self.assertEqual(
+            template_id_from_file("data/minecraft/structures/village/plains/house.snbt"),
+            "village/plains/house",
+        )
 
 
 class SnbtTest(unittest.TestCase):

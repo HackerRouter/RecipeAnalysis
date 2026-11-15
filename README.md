@@ -92,7 +92,7 @@ ra ingest       --label <label>                                      # 事实化
 ra run          --label <label>                                      # 事实 → 规则 → 不动点 → 可达性报告
 ra why          --label <label> <节点>                               # 追踪单个物品的获取途径或归因
 ra graph        --label <label>                                      # 把全量关系图落成内部表示（可视化用）
-ra export       --label <label>                                      # 导出结构布局的三张可查表
+ra export       --label <label>                                      # 导出结构布局与刷怪权重的可查表
 ra guide        --label <label>                                      # 把探测与产物结论写成该版本的适配指南
 ```
 
@@ -145,9 +145,11 @@ ra-paths --graph output/26.3/graph.json minecraft:emerald
 | `facts-summary.json` | 计数、状态分布、按族覆盖率、跳过规则统计 |
 | `coverage.json` / `reachability.jsonl` / `gaps.jsonl` | 规则覆盖、逐节点状态、不可达项与归因 |
 | `structures.jsonl` | 结构 → 起始池、拼装深度上限、全部可达池与模板权重（`ra export` 生成） |
-| `template_containers.jsonl` | 模板 → 容器坐标 + 战利品表 + 方块实体类型（`ra export` 生成） |
+| `template_containers.jsonl` | 模板 → 容器：坐标 + 战利品表（表由生成代码挂上时为 null 并标 `loot_bound`）+ 方块实体类型；处理器注入的带表方块另标 `via=processor` 与每片段上限（`ra export` 生成） |
 | `template_blocks.jsonl` | 模板 → 方块 ID + 状态串 + 出现次数（`ra export` 生成） |
-| `exports.json` | 三张表的行数与来源事实计数（`ra export` 生成） |
+| `structure_containers.jsonl` | 结构 → 生成代码里挂的战利品表：容器形态 + 表 + 调用点数（`ra export` 生成） |
+| `spawn_tables.jsonl` | 刷怪表：群系 / 结构 / 试炼刷怪笼 / 模板刷怪笼 / 袭击波次 → 类别 + 实体 + 权重 + 数量 + 波次 + 前提（`ra export` 生成） |
+| `exports.json` | 五张表的行数与来源事实计数（`ra export` 生成） |
 | `graph.json` | 全量关系图的内部表示：规则 + 三值状态 + 种子（`ra graph` 生成） |
 | `paths_<label>_<物品>.{dot,svg,html}` | 单个物品的来源图（`ra-paths` 生成） |
 | `guide.md` | 该版本的适配指南：目录归属、形状、未归属项、族级不可用（`ra guide` 生成） |

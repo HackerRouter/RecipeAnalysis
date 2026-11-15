@@ -105,12 +105,45 @@ class SpawnerConfigAdapter(Adapter):
             if not isinstance(ident, str):
                 missing.append(f"spawn_potentials[{index}].data.entity.id 缺失")
                 continue
-            entities.append(
+            row = {
+                "id": ident,
+                "weight": entry.get("weight") if isinstance(entry.get("weight"), int) else None,
+            }
+            equipment = data.get("equipment") if isinstance(data, dict) else None
+            if isinstance(equipment, dict) and isinstance(equipment.get("loot_table"), str):
+                row["equipment"] = equipment["loot_table"]
+            entities.append(row)
+
+        # 不祥配置独有的「打完弹什么」：表 + 权重。不祥钥匙就在这里，
+        # 它是不祥宝库能开的唯一前提，丢掉这张表就等于丢掉整条链。
+        eject: list[dict] = []
+        for index, entry in enumerate(doc.get("loot_tables_to_eject") or []):
+            if not isinstance(entry, dict):
+                missing.append(f"loot_tables_to_eject[{index}] 不是对象")
+                continue
+            table = entry.get("data")
+            if not isinstance(table, str):
+                missing.append(f"loot_tables_to_eject[{index}].data 缺失")
+                continue
+            eject.append(
                 {
-                    "id": ident,
+                    "table": table,
                     "weight": entry.get("weight") if isinstance(entry.get("weight"), int) else None,
                 }
             )
+
+        # 难度参数照原值保留：下游要按波次/同时存在数建模难度，折算会丢原值。
+        difficulty: dict[str, object] = {}
+        for key in (
+            "simultaneous_mobs",
+            "simultaneous_mobs_added_per_player",
+            "total_mobs",
+            "total_mobs_added_per_player",
+            "ticks_between_spawn",
+        ):
+            value = doc.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                difficulty[key] = value
 
         # 相对目录名就是配置 id：`trial_chamber/breeze/normal`
         local = rel_posix(path, root)
@@ -127,15 +160,21 @@ class SpawnerConfigAdapter(Adapter):
             )
             return
 
+        payload = {
+            "id": ident,
+            "namespace": namespace,
+            "tier": tier,
+            "entities": entities,
+        }
+        if eject:
+            payload["eject_tables"] = eject
+        if difficulty:
+            payload["difficulty"] = difficulty
+
         store.add(
             Fact(
                 kind="spawner_config",
-                payload={
-                    "id": ident,
-                    "namespace": namespace,
-                    "tier": tier,
-                    "entities": entities,
-                },
+                payload=payload,
                 prov=Prov(input="src", file=file_label),
                 status=Status.PARTIAL if missing else Status.PARSED,
                 missing=tuple(missing),

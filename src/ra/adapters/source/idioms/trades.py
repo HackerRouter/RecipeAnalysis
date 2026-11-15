@@ -55,6 +55,27 @@ NOT_A_LISTING = {
     "TranslatableComponent": "getOffer 里设物品显示名",
 }
 
+# ---- 交易参数（经验值、使用次数、价格浮动）--------------------------------
+
+# 反编译后的形参名是 `n` / `n2` / `n3`，**不能靠名字判断语义**。但构造器体里
+# `this.villagerXp = n3;` 把「哪个形参给了哪个字段」写明了，按这条取。
+FIELD_ASSIGN = re.compile(
+    r"this\.(villagerXp|xp|maxUses|priceMultiplier)\s*=\s*([^;]+);"
+)
+# 字段名 → 事实里的键。与新版数据包侧的 `meta` 键对齐（`max_uses` / `xp`）。
+FIELD_KEYS = {
+    "villagerXp": "xp",
+    "xp": "xp",
+    "maxUses": "max_uses",
+    "priceMultiplier": "price_multiplier",
+}
+CLASS_BODY = re.compile(r"\bclass\s+([A-Z][A-Za-z0-9_]*)[^{]*\{")
+CTOR_HEAD = re.compile(r"public\s+([A-Z][A-Za-z0-9_]*)\s*\(")
+THIS_DELEGATE = re.compile(r"this\s*\(([^;]*)\)\s*;")
+
+# `(argc, 字段)` → `("arg", 形参下标)` 或 `("const", 数值)`
+ParamSource = tuple[str, object]
+
 
 @dataclass(frozen=True)
 class Stack:
@@ -263,6 +284,189 @@ def _offer_shape(class_name: str, argc: int | None = None) -> OfferShape | None:
     return OFFER_SHAPES.get(class_name)
 
 
+# ---- 交易参数：按构造器体的字段赋值回取 -----------------------------------
+
+
+def _split_params(text: str) -> list[str]:
+    """按顶层逗号切形参列表，**含泛型尖括号**。
+
+    `split_args` 不把 `<>` 计入嵌套，`Map<VillagerType, Item> map` 会被切成两段，
+    形参个数于是多一，`(类名, 实参个数)` 键全部对不上——两版的这类交易
+    会静默丢掉经验值。
+    """
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for ch in text:
+        if ch == "<":
+            depth += 1
+        elif ch == ">":
+            depth = max(0, depth - 1)
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        elif ch == "," and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+            continue
+        current.append(ch)
+    tail = "".join(current).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _param_names(params_text: str) -> list[str]:
+    """`Item item, int n, Map<K, V> map` → `["item", "n", "map"]`。"""
+    names: list[str] = []
+    for segment in _split_params(params_text):
+        tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", segment)
+        if tokens:
+            names.append(tokens[-1])
+    return names
+
+
+def _number(expr: str) -> int | float | None:
+    """数字字面量。`0.05f` 这类浮点后缀要剥掉，否则整个字段会被判成不可解析。"""
+    text = expr.strip().rstrip("fF")
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if re.fullmatch(r"-?\d+\.\d+", text):
+        return float(text)
+    return None
+
+
+def _source_of(expr: str, params: list[str]) -> ParamSource | None:
+    """表达式相对形参列表的来源：形参下标或常量。"""
+    name = expr.strip()
+    if name in params:
+        return ("arg", params.index(name))
+    number = _number(name)
+    if number is not None:
+        return ("const", number)
+    return None
+
+
+def _ctor_bodies(class_body: str, class_name: str) -> dict[int, tuple[list[str], str]]:
+    """`{实参个数: (形参名, 构造器体)}`。同一类只保留一个同参数量的构造器。"""
+    out: dict[int, tuple[list[str], str]] = {}
+    for match in CTOR_HEAD.finditer(class_body):
+        if match.group(1) != class_name:
+            continue
+        open_paren = class_body.index("(", match.end() - 1)
+        close = _match_paren(class_body, open_paren)
+        if close < 0:
+            continue
+        params = _param_names(class_body[open_paren + 1 : close])
+        brace = class_body.find("{", close)
+        if brace < 0:
+            continue
+        end = match_brace(class_body, brace)
+        if end < 0:
+            continue
+        out[len(params)] = (params, class_body[brace + 1 : end])
+    return out
+
+
+def _direct_sources(params: list[str], body: str) -> dict[str, ParamSource]:
+    sources: dict[str, ParamSource] = {}
+    for match in FIELD_ASSIGN.finditer(body):
+        source = _source_of(match.group(2), params)
+        if source is not None:
+            sources[FIELD_KEYS[match.group(1)]] = source
+    return sources
+
+
+def _delegated_sources(
+    params: list[str],
+    body: str,
+    ctors: dict[int, tuple[list[str], str]],
+    depth: int = 0,
+) -> dict[str, ParamSource]:
+    """构造器只做委托时（`this(new ItemStack(item), n, n2, 12, n3);`），按位置回溯。
+
+    委托实参里既有当前形参，也有常量（`ItemsForEmeralds` 的 4 参重载把
+    maxUses 固定成 12）。所以不能只按名字搬，要把两边都归到当前构造器的形参上。
+    """
+    if depth > 3:
+        return {}
+    match = THIS_DELEGATE.search(body)
+    if match is None:
+        return {}
+    args = split_args(match.group(1))
+    target = ctors.get(len(args))
+    if target is None:
+        return {}
+    target_params, target_body = target
+    sources = _direct_sources(target_params, target_body)
+    if not sources:
+        sources = _delegated_sources(target_params, target_body, ctors, depth + 1)
+    out: dict[str, ParamSource] = {}
+    for field, (kind, value) in sources.items():
+        if kind == "const":
+            out[field] = ("const", value)
+            continue
+        if not isinstance(value, int) or not 0 <= value < len(args):
+            continue
+        source = _source_of(args[value], params)
+        if source is not None:
+            out[field] = source
+    return out
+
+
+def offer_params(text: str) -> dict[tuple[str, int], dict[str, ParamSource]]:
+    """`(类名, 实参个数) → {字段: 来源}`。
+
+    反编译后的形参名是 `n` / `n2` / `n3`，靠名字判断语义会全错；构造器体里的
+    `this.villagerXp = n3;` 是唯一可靠依据。字段名统一成数据包侧的键：
+    `xp` / `max_uses` / `price_multiplier`。
+    """
+    out: dict[tuple[str, int], dict[str, ParamSource]] = {}
+    for match in CLASS_BODY.finditer(text):
+        class_name = match.group(1)
+        brace = text.find("{", match.end() - 1)
+        if brace < 0:
+            continue
+        end = match_brace(text, brace)
+        if end < 0:
+            continue
+        class_body = text[brace + 1 : end]
+        ctors = _ctor_bodies(class_body, class_name)
+        for argc, (params, body) in ctors.items():
+            sources = _direct_sources(params, body)
+            if not sources:
+                sources = _delegated_sources(params, body, ctors)
+            if sources:
+                out[(class_name, argc)] = sources
+    return out
+
+
+def _param_meta(
+    class_name: str,
+    args: list[str],
+    params: dict[tuple[str, int], dict[str, ParamSource]],
+) -> dict:
+    """把一条交易的实参按参数表换成 `xp` / `max_uses` / `price_multiplier`。"""
+    spec = params.get((class_name, len(args)))
+    if not spec:
+        return {}
+    out: dict = {}
+    for field, (kind, value) in spec.items():
+        if kind == "const":
+            out[field] = value
+            continue
+        if not isinstance(value, int) or not 0 <= value < len(args):
+            continue
+        number = _number(args[value])
+        if number is None:
+            # 实参是变量或表达式：不猜值，留痕让下游知道这一项没取到
+            out[f"unresolved_{field}"] = args[value].strip()
+            continue
+        out[field] = number
+    return out
+
+
 class VillagerTrades(Idiom):
     id = ID
     needs = ("trade_listing", "merchant_offer")
@@ -287,6 +491,7 @@ class VillagerTrades(Idiom):
         if region is None:
             result.note(f"{java.path}: 未找到交易表初始化区，无法提取")
             return
+        params = offer_params(text)
 
         produced = 0
         unknown_classes: dict[str, int] = {}
@@ -304,7 +509,7 @@ class VillagerTrades(Idiom):
                 continue
             statement = region[open_paren + 1 : close_paren]
             produced += self._emit_levels(
-                statement, profession, java, result, unknown_classes
+                statement, profession, java, result, unknown_classes, params
             )
 
         # 流浪商人：独立的一张表，按等级 1/2 两个数组。
@@ -328,6 +533,7 @@ class VillagerTrades(Idiom):
                     java,
                     result,
                     unknown_classes,
+                    params,
                 )
 
         for class_name, count in sorted(unknown_classes.items()):
@@ -346,6 +552,7 @@ class VillagerTrades(Idiom):
         java,
         result: IdiomResult,
         unknown_classes: dict[str, int],
+        params: dict[tuple[str, int], dict[str, ParamSource]],
     ) -> int:
         """解析一段交易表文本里的全部 `等级 → ItemListing[]`，返回产出的链接数。"""
         produced = 0
@@ -359,7 +566,7 @@ class VillagerTrades(Idiom):
             body = statement[brace_index + 1 : close]
 
             for offer in self._offers_in(body):
-                for link in offers_to_links(offer, profession, level):
+                for link in offers_to_links(offer, profession, level, params):
                     result.add(
                         link,
                         ID,
@@ -411,7 +618,10 @@ def _match_paren(text: str, open_index: int) -> int:
 
 
 def offers_to_links(
-    offer: tuple[str, list[str]], profession: str, level: int
+    offer: tuple[str, list[str]],
+    profession: str,
+    level: int,
+    params: dict[tuple[str, int], dict[str, ParamSource]] | None = None,
 ) -> list[Link]:
     """把一条交易转成 IR 形状的链接；支付物按 Map 展开时会有多条。
 
@@ -452,6 +662,10 @@ def offers_to_links(
             "pay_counts": [count for _, count in group],
             "shape": class_name,
         }
+        if params:
+            # 经验值、使用次数、价格浮动：构造器体里的字段赋值就是判据，
+            # 不是从实参位置猜的。取不到时留 `unresolved_*`，不猜值。
+            meta.update(_param_meta(class_name, args, params))
         variant = shape.give_variant
         if variant:
             meta["give_variant"] = variant
@@ -489,9 +703,14 @@ def _assumption_nodes(profession: str) -> tuple[str, ...]:
     return ("assume:villager_trade",)
 
 
-def offers_to_link(offer: tuple[str, list[str]], profession: str, level: int) -> Link:
+def offers_to_link(
+    offer: tuple[str, list[str]],
+    profession: str,
+    level: int,
+    params: dict[tuple[str, int], dict[str, ParamSource]] | None = None,
+) -> Link:
     """单条形态。`EmeraldsForVillagerTypeItem` 会展开成多条，这里只取第一条。"""
-    return offers_to_links(offer, profession, level)[0]
+    return offers_to_links(offer, profession, level, params)[0]
 
 
 def exported() -> list[Idiom]:

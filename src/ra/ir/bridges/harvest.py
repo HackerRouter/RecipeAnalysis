@@ -85,6 +85,10 @@ class HarvestResult:
 
     # 方块 id（不带排序前缀）→ 最弱合格工具节点
     capabilities: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # 方块 id → 最低工具等级（stone / iron / diamond），直接由 `needs_*_tool` 标签给
+    levels: dict[str, str] = field(default_factory=dict)
+    # 有等级要求但推不出合格工具的方块（工具组件缺失/形状异常时出现）
+    gaps: list[str] = field(default_factory=list)
     # 有工具组件但既无 allows 也无 denies 的物品（形状异常，留痕）
     unreadable_tools: list[str] = field(default_factory=list)
     # 工具组件里引用了查不到的标签
@@ -146,21 +150,24 @@ def derive_capabilities(
 
     result.tools = len(allows)
 
-    # 必须用正确工具才掉落的方块 = incorrect_for_* 标签的并集。
-    # 不在里面的方块徒手也能掉，不该被加上工具要求。
-    requires_correct = set()
-    for ref in (
-        "#minecraft:incorrect_for_wooden_tool",
-        "#minecraft:incorrect_for_stone_tool",
-        "#minecraft:incorrect_for_copper_tool",
-        "#minecraft:incorrect_for_iron_tool",
-        "#minecraft:incorrect_for_gold_tool",
-        "#minecraft:incorrect_for_diamond_tool",
-        "#minecraft:incorrect_for_netherite_tool",
+    # 等级由 `needs_*_tool` 直接给：它列出的方块就是「必须该等级及以上工具才掉落」。
+    # 实测 26.3：这三张标签的并集与 `incorrect_for_*` 的并集逐项相等（各 108 个），
+    # 所以用它替 `requires_correct` 不改变任何结论，只是把语义写明。
+    for level, tag in (
+        ("stone", "minecraft:needs_stone_tool"),
+        ("iron", "minecraft:needs_iron_tool"),
+        ("diamond", "minecraft:needs_diamond_tool"),
     ):
-        members = _members(ref, "minecraft:block", tags)
-        if members:
-            requires_correct |= members
+        members = _members("#" + tag, "minecraft:block", tags)
+        if not members:
+            result.unresolved_refs["#" + tag] += 1
+            continue
+        for block in members:
+            result.levels[block] = level
+
+    # 必须用正确工具才掉落的方块 = 有等级要求的那些。
+    # 不在里面的方块徒手也能掉，不该被加上工具要求。
+    requires_correct = set(result.levels)
 
     # 反向索引：方块 → 合格工具（只保留需要工具的那批方块）
     harvestable: dict[str, set[str]] = defaultdict(set)
@@ -177,6 +184,9 @@ def derive_capabilities(
         result.capabilities[block] = tuple(node("tool", item) for item in weakest)
 
     result.blocks = len(result.capabilities)
+    # 对账：有等级要求、却没有合格工具的方块。工具组件缺失或形状异常时出现，
+    # 必须留痕——否则「没有工具要求」与「事实里没有这件工具」长得一样。
+    result.gaps = sorted(set(result.levels) - set(result.capabilities))
     return result
 
 

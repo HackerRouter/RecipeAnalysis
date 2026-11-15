@@ -140,6 +140,9 @@ TABLE_KIND = {
     "dispensers": "发射器",
     "equipment": "装备",
     "harvest": "收割",
+    "brush": "刷扇",
+    "carve": "雕刻",
+    "till": "耕作",
 }
 
 # 战利品表路径首段 → 来源类别。键取自实测的 16 种首段。
@@ -213,6 +216,7 @@ CODE_NAME = {
     "drops_source": "掉落",
     "sheep_shear": "剪毛",
     "death_drops": "死亡掉落",
+    "interact_tables": "交互",
     # 1.18.x 的交易表硬编码在源码里，走 `code/*` 而不是 `trades` 族。
     # 不登记就会显示成「代码提取」，那是提取方式，不是来源。
     "villager_trades": "村民交易",

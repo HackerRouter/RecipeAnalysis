@@ -6,8 +6,15 @@
     "  kind = block     目录内路径即方块名，body 是 block:<名>（可由 places 从物品推导）",
     "  kind = entity    目录内首段即实体名（子变体如 sheep/white 取首段），body 是 entity:<名>",
     "  kind = assume    body 是一条假设节点，表示该场景可发生",
+    "  requires         可选：触发这张表还得有的东西（剪取表要剪刀），进 body",
     "",
-    "每个 kind 都有对账：block / entity 的名字必须在注册表里，否则记台账不静默丢弃。"
+    "键按最长前缀匹配：先试 `spawners/ominous`，再退回 `spawners`。同一首段下可以有",
+    "普通与不祥两套前提不同的装置（试炼刷怪笼的 normal / ominous 配置）。",
+    "",
+    "每个 kind 都有对账：block / entity 的名字必须在注册表里，否则记台账不静默丢弃。",
+    "",
+    "交互表的持有者另有事实来源：code_link 的 interact_tables 从",
+    "dropFrom*InteractLootTable 调用直接给出表、目标与工具。事实优先，本节只兜底。"
   ],
 
   "blocks": { "kind": "block" },
@@ -35,8 +42,14 @@
   },
   "spawners": {
     "kind": "assume",
-    "node": "assume:structure_loot",
-    "basis": "试炼刷怪笼在试炼密室里"
+    "node": "assume:trial_chamber",
+    "basis": "试炼刷怪笼完成挑战后弹出奖励表；不判试炼密室位置与探索成本"
+  },
+  "spawners/ominous": {
+    "kind": "assume",
+    "node": "assume:trial_chamber",
+    "requires": ["assume:ominous"],
+    "basis": "不祥配置只在玩家带不祥之兆时启用：刷怪笼转为不祥，完成后弹出不祥钥匙等表；不祥钥匙是不祥宝库能开的唯一前提"
   },
   "equipment": {
     "kind": "assume",
@@ -81,7 +94,8 @@
   },
 
   "shearing": {
-    "kind": "holds_only",
-    "basis": "剪毛表由 code_link 的 holds 事实挂到羊身上，不走约定"
+    "kind": "entity",
+    "requires": ["tool:minecraft:shears"],
+    "basis": "剪取表按实体分组：首段是实体名，子表后缀是变体（sheep/white、mooshroom/brown）。触发要剪刀；`shearing/sheep` 入口表由 code_link 的 holds 事实覆盖，事实优先"
   }
 }

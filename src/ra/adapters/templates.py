@@ -23,6 +23,64 @@ FAMILY = "template"
 __all__ = ["SnbtError", "TemplateAdapter", "parse_snbt"]
 
 
+def _spawner_potentials(doc: dict) -> list[dict]:
+    """模板里的刷怪笼：NBT 的 `SpawnPotentials` / `SpawnData`。
+
+    ```snbt
+    {pos: [4, 1, 3], state: "minecraft:spawner", nbt: {
+        SpawnData: {entity: {id: "minecraft:spider"}},
+        SpawnPotentials: [{data: {entity: {id: "minecraft:spider"}}, weight: 1}]}}
+    ```
+
+    **不以方块名为判据**：这个方块改过名（`mob_spawner` → `spawner`），
+    而 `SpawnPotentials` / `SpawnData` 两个键只在刷怪笼的方块实体上出现。
+    两者并存时取 `SpawnPotentials`：它是完整候选表，`SpawnData` 只是其中一项的
+    初值，重复记会让同一实体出现两次。
+
+    模板里带刷怪笼的极少（多数刷怪笼由结构生成代码或特征直接放置），
+    所以这一条只补数据包真能给出的那部分，不代表「结构里刷什么」的全集。
+    """
+    data = doc.get("data")
+    if not isinstance(data, list):
+        return []
+
+    out: list[dict] = []
+    for cell in data:
+        if not isinstance(cell, dict):
+            continue
+        nbt = cell.get("nbt")
+        if not isinstance(nbt, dict):
+            continue
+        pos = cell.get("pos")
+
+        potentials = nbt.get("SpawnPotentials")
+        if isinstance(potentials, list):
+            for entry in potentials:
+                if not isinstance(entry, dict):
+                    continue
+                seed = entry.get("data")
+                entity = seed.get("entity") if isinstance(seed, dict) else None
+                ident = entity.get("id") if isinstance(entity, dict) else None
+                if not isinstance(ident, str):
+                    continue
+                weight = entry.get("weight")
+                out.append(
+                    {
+                        "pos": pos,
+                        "entity": ident,
+                        "weight": weight if isinstance(weight, int) else None,
+                    }
+                )
+            continue
+
+        seed = nbt.get("SpawnData")
+        entity = seed.get("entity") if isinstance(seed, dict) else None
+        ident = entity.get("id") if isinstance(entity, dict) else None
+        if isinstance(ident, str):
+            out.append({"pos": pos, "entity": ident, "weight": None})
+    return out
+
+
 class TemplateAdapter(Adapter):
     id = "src/templates"
 
@@ -123,6 +181,9 @@ class TemplateAdapter(Adapter):
             return
 
         payload, missing = normalize_template(doc, template_id_from_file(file_label))
+        potentials = _spawner_potentials(doc)
+        if potentials:
+            payload["spawner_potentials"] = potentials
 
         status = Status.PARTIAL if missing else Status.PARSED
         store.add(

@@ -35,81 +35,12 @@ from __future__ import annotations
 
 import itertools
 from collections import Counter
-from typing import Iterator
 
 from ...facts import Fact
 from ..nodes import Rule, node, tag_node
+from ..recipe_ir import RecipeIR
 
 FAMILY = "recipes"
-
-# `crafting_shaped` 的图案尺寸上限：2x2 以内用手工合成栏，超出需要工作台。
-HAND_GRID = 2
-
-
-def _iter_ingredient_like(value: object) -> Iterator[dict]:
-    """递归找出所有 `{items, tags}` 形状的对象。
-
-    `items` 与 `tags` 至少有一个存在才算，避免把恰好同名的别的字段当原料。
-    """
-    if isinstance(value, dict):
-        if "items" in value or "tags" in value:
-            yield value
-        for sub in value.values():
-            yield from _iter_ingredient_like(sub)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _iter_ingredient_like(item)
-
-
-def _dedupe(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for value in values:
-        if value not in seen:
-            seen.add(value)
-            out.append(value)
-    return out
-
-
-def ingredient_slots(payload: dict) -> list[list[str]]:
-    """配方 → 槽位列表。每槽是可接受的节点名（`#` 前缀表示 tag）。
-
-    ## 槽位内是 OR，槽位之间是 AND
-
-    这是本文件最容易搞错的一处，也是实测踩过的真 bug：
-
-    ```jsonc
-    // gold_nugget_from_smelting.json —— 熔炉只有一个输入槽
-    "ingredients": [{"items": ["golden_pickaxe", "golden_shovel", … 12 个"]}]
-    // sandstone_slab.json —— 一个槽位接受两种砂岩
-    "key": [{"items": ["sandstone", "chiseled_sandstone"], "symbol": "#"}]
-    ```
-
-    一个槽位只能放一样东西，所以槽内的多个物品是**任选其一**。早先把
-    `items` 平铺进 body，等于说「必须同时持有 12 件金装备才能烧出一粒金粒」——
-    可达性会误判，图上也会出现一个 body 塞着 12 个原料的畸形菱形。用户看到的
-    「金粒的烧炼配方很乱」就是这个。
-
-    IR 的 body 是 AND，没有槽位内 OR 的位置，所以调用方按槽位展开成多条规则
-    （见 `compile_recipes`）。实测量级：26.3 共 295 条配方有多选槽位（14%），
-    展开后规则数 2042 → 3017，最大笛卡尔积 16，没有爆炸风险。
-    """
-    slots: list[list[str]] = []
-    for blob in _iter_ingredient_like(
-        {k: v for k, v in payload.items() if k != "result"}
-    ):
-        choices: list[str] = []
-        for ident in blob.get("items") or []:
-            if not isinstance(ident, str):
-                continue
-            # `items` 里也可能写 `#tag`，与 `tags` 字段同义
-            choices.append(ident if ident.startswith("#") else ident)
-        for ident in blob.get("tags") or []:
-            if isinstance(ident, str):
-                choices.append("#" + ident.lstrip("#"))
-        if choices:
-            slots.append(_dedupe(choices))
-    return slots
 
 
 def _slot_node(choice: str) -> str:
@@ -138,6 +69,8 @@ class RecipeCompileResult:
         # 无原料配方：不当成「徒手可得」，留给归因说明。
         self.no_ingredient: list[str] = []
         self.unknown_serializers: Counter = Counter()
+        # payload 里 IR 没解释的键：(文件, 键名)。非空说明事实结构漂移。
+        self.unknown_fields: list[tuple[str, tuple[str, ...]]] = []
         # 因槽位内多选而展开成多条规则的配方：(文件, 组合数, 实际条数)
         self.expanded: list[tuple[str, int, int]] = []
 
@@ -171,14 +104,17 @@ def compile_recipes(
 
         head = node("item", product_id)
 
-        station = stations[serializer]
-        if station is None and _pattern_needs_table(payload.get("pattern")):
-            # 图案超出 2x2，必须有工作台；表里写 null 是因为 2x2 也能做
-            station = "minecraft:crafting_table"
+        try:
+            ir = RecipeIR.from_payload(payload, station=stations[serializer])
+        except ValueError:
+            continue
+        if ir.unparsed:
+            result.unknown_fields.append((fact.prov.file, ir.unparsed))
+        station = ir.station
 
         # 槽位之间 AND、槽位内 OR。IR 的 body 只有 AND，所以槽位内多选要
-        # 展开成多条同 head 规则（详见 `ingredient_slots` 的说明）。
-        slots = ingredient_slots(payload)
+        # 展开成多条同 head 规则（详见 `recipe_slots.ingredient_slots` 的说明）。
+        slots = ir.slot_choices()
         if not slots:
             if station is None:
                 result.no_ingredient.append(fact.prov.file)

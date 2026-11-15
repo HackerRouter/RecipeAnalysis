@@ -1,15 +1,26 @@
-"""结构内部布局的三张可查表。
+"""结构内部布局的可查表。
 
 输入是已落盘的事实，不读 `inputs/`；输出给下游做**上界校验**：
 
 | 表 | 一行是 | 用途 |
 |---|---|---|
 | `structures` | 一个拼图结构 | 允许出现的模板、权重、拼装深度上限 |
-| `template_containers` | 一个容器方块实体 | 容器白名单（模板 → 坐标 + 战利品表） |
+| `template_containers` | 一个容器 | 容器白名单（模板 → 坐标或处理器 + 战利品表） |
 | `template_blocks` | 一个方块状态 | 结构专有方块白名单（含状态与数量） |
+| `structure_containers` | 一个结构类型上的容器绑定 | 没有模板的结构（神殿/要塞/矿井）在代码里的带表容器 |
 
 只出身份与白名单，不出数量：一个结构实例里实际有几个箱子、几个方块，
-取决于运行期拼装结果，数据包给不出。
+取决于运行期拼装结果，数据包给不出；`structure_containers` 的 `sites` 是
+调用点个数，同样的量级警告适用。
+
+`template_containers` 的 `via` 区分容器来源：
+
+- `template`：模板 NBT 里自带，行里给 `pos`。
+- `processor`：处理器把方块换成带表的方块（可疑沙/砾石），行里给 `processor`
+  与 `limit`（每片段最多几处），`pos` 为 null。
+
+`template` 行的 `table` 可以为 null：那格容器在模板里，表由结构生成代码在运行时
+挂上。这种行带 `loot_bound: "code"`，用来与「这里真的没有容器」区分。
 
 `start_pool` 指向模板池；池内元素按 `element` 摊平，`list_pool_element` 的
 嵌套成员带 `nested`。`weight_total` 是同一池内顶层元素的权重和，
@@ -18,17 +29,23 @@
 
 from __future__ import annotations
 
-from ..facts import FactStore
+from ..facts import Fact, FactStore
 
 # 产物文件名与表名一致。
 TABLE_STRUCTURES = "structures"
 TABLE_CONTAINERS = "template_containers"
 TABLE_BLOCKS = "template_blocks"
+TABLE_STRUCTURE_CONTAINERS = "structure_containers"
 
-TABLE_NAMES = (TABLE_STRUCTURES, TABLE_CONTAINERS, TABLE_BLOCKS)
+TABLE_NAMES = (
+    TABLE_STRUCTURES,
+    TABLE_CONTAINERS,
+    TABLE_BLOCKS,
+    TABLE_STRUCTURE_CONTAINERS,
+)
 
 
-def _ident(raw: object, kind: str | None) -> str | None:
+def ident_of(raw: object, kind: str | None) -> str | None:
     """事实 id → 注册表标识。
 
     数据包形态 `data/<ns>/worldgen/<类型>/<路径>`。运行期导出的 id 是
@@ -65,12 +82,23 @@ def _phase(value: str) -> tuple[str, str | None]:
     return block, rest[:-1] if rest.endswith("}") else rest
 
 
+def _processor_ids(raw: object) -> list[str]:
+    """池元素的 `processors`：字符串或字符串列表。内联对象不计。"""
+    if isinstance(raw, str):
+        return [raw]
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, str)]
+    return []
+
+
 def _structure_rows(
     pools: dict[str, list[dict]],
     structures: dict[str, dict],
     template_pools: dict[str, tuple[str, ...]],
-) -> list[dict]:
+    processor_loot: dict[str, list[dict]],
+) -> tuple[list[dict], list[dict]]:
     rows: list[dict] = []
+    derived: list[dict] = []
     for ident, structure in sorted(structures.items()):
         visited: set[str] = set()
         pending = [structure["start_pool"]]
@@ -89,20 +117,36 @@ def _structure_rows(
                 if not isinstance(location, str):
                     continue
                 template = _local(location)
-                templates.append(
-                    {
-                        "template": template,
-                        "weight": element.get("weight", 1),
-                        "element_type": element.get("element_type"),
-                        "nested": bool(element.get("nested")),
-                    }
-                )
+                entry = {
+                    "template": template,
+                    "weight": element.get("weight", 1),
+                    "element_type": element.get("element_type"),
+                    "nested": bool(element.get("nested")),
+                }
+                processors = element.get("processors")
+                if processors is not None:
+                    entry["processors"] = processors
+                templates.append(entry)
                 if location in pools and location not in visited:
                     pending.append(location)
                 # 模板内拼图方块引用的池，继续向下展开
                 for next_pool in template_pools.get(template, ()):
                     if next_pool not in visited:
                         pending.append(next_pool)
+                # 处理器把方块换成带表的方块（可疑沙/砾石）：模板里看不到，只能从处理器定义取
+                for processor in _processor_ids(processors):
+                    for injection in processor_loot.get(processor, ()):
+                        derived.append(
+                            {
+                                "template": template,
+                                "pos": None,
+                                "table": injection.get("loot_table"),
+                                "block_entity": injection.get("output_state"),
+                                "via": "processor",
+                                "processor": processor,
+                                "limit": injection.get("limit"),
+                            }
+                        )
             pools_out.append(
                 {
                     "pool": pool_id,
@@ -122,22 +166,31 @@ def _structure_rows(
                 "pools": pools_out,
             }
         )
-    return rows
+    return rows, derived
 
 
 def build_structure_tables(store: FactStore) -> dict[str, list[dict]]:
-    """事实库 → `{表名: 行列表}`。三张表都按主键排序，重复运行逐字节一致。"""
+    """事实库 → `{表名: 行列表}`。四张表都按主键排序，重复运行逐字节一致。"""
     pools: dict[str, list[dict]] = {}
     structures: dict[str, dict] = {}
+    processor_loot: dict[str, list[dict]] = {}
+    structure_types: dict[str, str] = {}
     for fact in store.of_kind("worldgen"):
         payload = fact.payload
         kind = payload.get("worldgen_kind")
-        ident = _ident(payload.get("id"), kind)
+        ident = ident_of(payload.get("id"), kind)
         if ident is None:
             continue
         if kind == "template_pool":
             pools[ident] = list(payload.get("elements") or [])
+        elif kind == "processor_list":
+            injections = payload.get("loot_injections")
+            if injections:
+                processor_loot[ident] = list(injections)
         elif kind in ("structure", "configured_structure_feature"):
+            structure_type = payload.get("type")
+            if isinstance(structure_type, str):
+                structure_types[ident] = structure_type
             start_pool = payload.get("start_pool")
             if isinstance(start_pool, str):
                 structures[ident] = {
@@ -156,18 +209,20 @@ def build_structure_tables(store: FactStore) -> dict[str, list[dict]]:
         jigsaw = payload.get("jigsaw_pools")
         if jigsaw:
             template_pools[template] = tuple(sorted(set(jigsaw)))
-        for container in payload.get("loot_tables") or []:
+        for container in payload.get("containers") or []:
             table = container.get("table")
-            if not isinstance(table, str):
-                continue
-            containers.append(
-                {
-                    "template": template,
-                    "pos": container.get("pos"),
-                    "table": table,
-                    "block_entity": container.get("block_entity"),
-                }
-            )
+            row = {
+                "template": template,
+                "pos": container.get("pos"),
+                "table": table,
+                "block_entity": container.get("block_entity"),
+                "via": "template",
+            }
+            if table is None:
+                # 表不在模板 NBT 里，由结构生成代码在运行时挂上。行必须留：
+                # 丢掉它会让这类结构看起来「一个容器都没有」，与「表看不见」混同。
+                row["loot_bound"] = "code"
+            containers.append(row)
         for state, count in (payload.get("block_counts") or {}).items():
             block, state_body = _phase(state)
             blocks.append(
@@ -179,10 +234,94 @@ def build_structure_tables(store: FactStore) -> dict[str, list[dict]]:
                 }
             )
 
-    containers.sort(key=lambda row: (row["template"], row["table"], str(row["pos"])))
+    structure_rows, derived = _structure_rows(
+        pools, structures, template_pools, processor_loot
+    )
+    unique: dict[tuple, dict] = {}
+    for row in [*containers, *derived]:
+        key = (
+            row["template"],
+            row["table"] or "",
+            row.get("via"),
+            row.get("processor"),
+            str(row.get("pos")),
+        )
+        unique[key] = row
+    containers = list(unique.values())
+    containers.sort(
+        key=lambda row: (
+            row["template"],
+            row["table"] or "",
+            row.get("via", ""),
+            row.get("processor") or "",
+            str(row.get("pos")),
+        )
+    )
     blocks.sort(key=lambda row: (row["template"], row["block"], row["state"] or ""))
     return {
-        TABLE_STRUCTURES: _structure_rows(pools, structures, template_pools),
+        TABLE_STRUCTURES: structure_rows,
         TABLE_CONTAINERS: containers,
         TABLE_BLOCKS: blocks,
+        TABLE_STRUCTURE_CONTAINERS: _code_container_rows(
+            store.of_kind("structure_container"), structure_types
+        ),
     }
+
+
+def _local_name(value: str) -> str:
+    """`minecraft:ocean_monument` → `ocean_monument`。两侧命名空间写法不一致时靠它对齐。"""
+    return value.split(":", 1)[-1]
+
+
+def _code_container_rows(
+    facts: list[Fact], structure_types: dict[str, str]
+) -> list[dict]:
+    """代码侧容器绑定 → 一行一个（结构类型, 容器形态, 表）。
+
+    同一绑定常在多个拼装器类里各出现一次（堡垒的桥与房间），按主键合并，
+    `sites` 累加调用点个数，`sources` 记全部出处。
+
+    `structures` 由世界生成事实的 `type` 回连（结构 JSON 的 `type` 就是这个 id），
+    所以结构 id 不必从类名猜——`OceanMonumentPieces` 对应的是 `monument` 而非
+    `ocean_monument`。
+    """
+    grouped: dict[tuple[str, str, str], dict] = {}
+    for fact in facts:
+        payload = fact.payload
+        structure_type = payload.get("structure_type")
+        container = payload.get("container")
+        table = payload.get("loot_table")
+        if not all(isinstance(item, str) for item in (structure_type, container, table)):
+            continue
+        key = (structure_type, container, table)
+        row = grouped.setdefault(
+            key,
+            {
+                "structure_type": structure_type,
+                "container": container,
+                "table": table,
+                "sites": 0,
+                "sources": set(),
+            },
+        )
+        row["sites"] += payload.get("sites") or 1
+        row["sources"].add(fact.prov.file)
+        marker = payload.get("marker")
+        if isinstance(marker, str):
+            row.setdefault("markers", set()).add(marker)
+
+    local_to_structures: dict[str, list[str]] = {}
+    for ident, structure_type in structure_types.items():
+        local_to_structures.setdefault(_local_name(structure_type), []).append(ident)
+
+    rows: list[dict] = []
+    for key in sorted(grouped):
+        row = grouped[key]
+        row["structures"] = sorted(
+            local_to_structures.get(_local_name(row["structure_type"]), [])
+        )
+        row["sources"] = sorted(row["sources"])
+        if "markers" in row:
+            row["markers"] = sorted(row["markers"])
+        rows.append(row)
+    return rows

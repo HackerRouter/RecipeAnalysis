@@ -108,6 +108,10 @@ ANCHORS: dict[str, tuple[str, str]] = {
         r"EntitySpawnReason\.STRUCTURE",
         "以「结构生成」理由造实体（26.3 形态）",
     ),
+    "structure_type_register": (
+        r'(?:StructureType|StructureFeature)\.register\(\s*"',
+        "结构类型注册（类型 id → 结构类）",
+    ),
     "structure_piece_create": (
         # 1.18.2 没有 EntitySpawnReason，形态是 `create(某人.getLevel())`。
         # 写成这样仍然精确：它排除掉 spawn egg 那类 `create(level)` 的简写。
@@ -147,6 +151,9 @@ class JavaIndex:
     excluded: dict[str, int] = field(default_factory=dict)
     identifiers: dict[str, str] = field(default_factory=dict)
     no_anchor: int = 0
+    # `load()` 的缓存：无锚点文件不进 `files`，但 idiom 仍需读它们的正文。
+    _loaded: dict[str, JavaFile | None] = field(default_factory=dict, repr=False)
+    _paths: dict[str, Path] | None = field(default=None, repr=False)
 
     @property
     def candidates(self) -> list[JavaFile]:
@@ -157,6 +164,32 @@ class JavaIndex:
             if java.stem == stem:
                 return java
         return None
+
+    def load(self, stem: str) -> JavaFile | None:
+        """按类名取文件，包含不在索引里的（无锚点只计数，正文不保留）。
+
+        结构类大多没有任何获取语义锚点，却是指向拼装器唯一的数据来源；
+        需要它们的 idiom 用这个入口读，不重复扫全量目录。
+        """
+        found = self.by_stem(stem)
+        if found is not None:
+            return found
+        if stem in self._loaded:
+            return self._loaded[stem]
+        if self._paths is None:
+            self._paths = {path.stem: path for path in self.root.rglob("*.java")}
+        path = self._paths.get(stem)
+        java = (
+            JavaFile(
+                path=path.relative_to(self.root).as_posix(),
+                text=path.read_text(encoding="utf-8", errors="replace"),
+                anchors=(),
+            )
+            if path is not None
+            else None
+        )
+        self._loaded[stem] = java
+        return java
 
     def find_path_contains(self, fragment: str) -> list[JavaFile]:
         return [f for f in self.files.values() if fragment in f.path]

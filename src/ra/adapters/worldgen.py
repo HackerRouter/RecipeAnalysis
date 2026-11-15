@@ -201,6 +201,16 @@ class WorldgenAdapter(Adapter):
         if spawns:
             payload["spawns"] = spawns
 
+        # 群系刷怪表与结构覆盖形状同构（类别 → 带权重的实体条目），
+        # 但位置两版不同、新版还多一层 `attributes`。
+        # 权重不影响可达性，只供下游查表；IR 只读 `references`。
+        if kind == "biome":
+            biome_spawns, biome_costs = _biome_spawns(body)
+            if biome_spawns:
+                payload["spawns"] = biome_spawns
+            if biome_costs:
+                payload["spawn_costs"] = biome_costs
+
         # 结构内部布局（拼图）：起始池与深度上限在结构侧，池内元素在模板池侧。
         # 两者都是拼装关系的语法，不判断「这个模板会不会真的被拼上」。
         if kind in ("structure", "configured_structure_feature"):
@@ -212,6 +222,12 @@ class WorldgenAdapter(Adapter):
                 payload["size"] = size
         elif kind == "template_pool":
             payload["elements"] = _pool_elements(body.get("elements"))
+        elif kind == "processor_list":
+            # 处理器可以把方块换成带战利品表的方块（可疑沙/砾石）；
+            # 这些容器不在模板 NBT 里，只能从处理器定义取。
+            injections = _loot_injections(body.get("processors"))
+            if injections:
+                payload["loot_injections"] = injections
 
         # 参数型注册表（noise、density_function 等）本就不含放置关系，无 type 不是缺陷
         resource_only = not references and payload["type"] is None
@@ -284,14 +300,107 @@ def _collect_pool_elements(raw: object, out: list[dict], nested: bool) -> None:
                 "location": location,
                 "weight": weight if isinstance(weight, int) else 1,
             }
+            processors = element.get("processors")
+            if isinstance(processors, (str, list)):
+                entry["processors"] = processors
             if nested:
                 entry["nested"] = True
             out.append(entry)
         _collect_pool_elements(element.get("elements"), out, nested=True)
 
 
+def _loot_injections(raw: object) -> list[dict]:
+    """处理器列表 → `[{loot_table, output_state, modifier, limit}]`。
+
+    `append_loot` 把战利品表附加到被替换的方块上（可疑沙/砾石）。
+    `capped` 的 `limit` 是「本次应用最多替换几处」，是每片段的数量上限。
+    """
+    out: list[dict] = []
+    _collect_processors(raw, out, limit=None)
+    return out
+
+
+def _collect_processors(raw: object, out: list[dict], limit: int | None) -> None:
+    if not isinstance(raw, list):
+        return
+    for node in raw:
+        if not isinstance(node, dict):
+            continue
+        kind = _local(node.get("processor_type"))
+        if kind == "capped":
+            capped = node.get("limit")
+            nested_limit = capped if isinstance(capped, int) else limit
+            _collect_processors([node.get("delegate")], out, nested_limit)
+            continue
+        if kind == "rule":
+            for rule in node.get("rules") or []:
+                if not isinstance(rule, dict):
+                    continue
+                modifier = rule.get("block_entity_modifier")
+                if not isinstance(modifier, dict):
+                    continue
+                table = modifier.get("loot_table")
+                if not isinstance(table, str):
+                    continue
+                out.append(
+                    {
+                        "loot_table": table,
+                        "output_state": rule.get("output_state"),
+                        "modifier": _local(modifier.get("type")),
+                        "limit": limit,
+                    }
+                )
+            _collect_processors(node.get("processors"), out, limit)
+            continue
+        # 其余处理器：嵌套的 delegate 与 processors 里还可能藏规则
+        _collect_processors([node.get("delegate")], out, limit)
+        _collect_processors(node.get("processors"), out, limit)
+
+
+def _spawn_count(node: dict) -> tuple[int | None, int | None]:
+    """刷怪条目的数量上下限。两版字段不同，归一成一对整数。
+
+    - 新版的 `count`：整数，或 `{type: minecraft:uniform, min_inclusive, max_inclusive}`
+    - 旧版的 `minCount` / `maxCount`：两个整数
+
+    取不到就留 `None`，不补 1：「没有写数量」与「写了一只」是不同事实。
+    """
+    count = node.get("count")
+    if isinstance(count, int):
+        return count, count
+    if isinstance(count, dict):
+        low = count.get("min_inclusive")
+        high = count.get("max_inclusive")
+        if isinstance(low, int) and isinstance(high, int):
+            return low, high
+    low = node.get("minCount")
+    high = node.get("maxCount")
+    if isinstance(low, int) or isinstance(high, int):
+        return (
+            low if isinstance(low, int) else None,
+            high if isinstance(high, int) else None,
+        )
+    return None, None
+
+
+def _spawn_entry(spawn: dict, category: str) -> dict | None:
+    """一条刷怪条目。实体名不像注册名时返回 None。"""
+    ident = spawn.get("type")
+    if not isinstance(ident, str) or not _looks_like_id(ident):
+        return None
+    low, high = _spawn_count(spawn)
+    weight = spawn.get("weight")
+    return {
+        "category": category,
+        "entity": ident,
+        "weight": weight if isinstance(weight, int) else None,
+        "count_min": low,
+        "count_max": high,
+    }
+
+
 def _collect_spawns(raw: object) -> list[dict]:
-    """结构 JSON 的 `spawn_overrides` → `[{entity, category}]`。
+    """结构 JSON 的 `spawn_overrides` → 带权重与数量的刷怪条目。
 
     形状：
 
@@ -305,8 +414,10 @@ def _collect_spawns(raw: object) -> list[dict]:
     26.3 的 52 个结构文件都带这个键，但绝大多数是空对象——「结构里不额外刷怪」
     与「这个结构不存在」是两回事，所以空对象不产事实、也不记缺陷。
 
-    只取 `type`（实体 id）与游荡类别。`count` 是数量，`weight` 是权重，
-    都不影响「这个实体在这个结构里会生成」这个判断，放 meta 即可。
+    `weight` 与 `count` 不影响「这个实体会不会在这里生成」的判断，
+    但下游要查「刷怪权重表」，所以照原样留下，不在这里折算概率。
+    旧版的键在顶层 `spawn_overrides`，新版在结构 JSON 顶层同一位置，
+    但条目字段不同（`count` 对 `minCount`/`maxCount`），由 `_spawn_count` 归一。
     """
     if not isinstance(raw, dict):
         return []
@@ -315,13 +426,53 @@ def _collect_spawns(raw: object) -> list[dict]:
         if not isinstance(entry, dict):
             continue
         for spawn in entry.get("spawns") or []:
-            if not isinstance(spawn, dict):
-                continue
-            ident = spawn.get("type")
-            if not isinstance(ident, str) or not _looks_like_id(ident):
-                continue
-            out.append({"entity": ident, "category": category})
+            if isinstance(spawn, dict):
+                row = _spawn_entry(spawn, category)
+                if row is not None:
+                    out.append(row)
     return out
+
+
+def _biome_spawns(body: dict) -> tuple[list[dict], dict]:
+    """群系刷怪表 → `(条目, 刷怪代价)`。两版位置不同：
+
+    ```json
+    // 新版：attributes 里的一条 gameplay 属性
+    {"attributes": {"minecraft:gameplay/natural_mob_spawns":
+        {"argument": {"spawns_by_category": {"monster": [...]}, "spawn_costs": {...}}}}}
+
+    // 旧版：顶层两个字段
+    {"spawners": {"monster": [...]}, "spawn_costs": {...}}
+    ```
+
+    `spawn_costs` 是「同种生物刷多了会变贵」的能量预算，原样保留：
+    它的键是实体 id，形状由数据决定，这一层不拆。
+    """
+    groups = None
+    costs: object = None
+    attributes = body.get("attributes")
+    if isinstance(attributes, dict):
+        natural = attributes.get("minecraft:gameplay/natural_mob_spawns")
+        if isinstance(natural, dict) and isinstance(natural.get("argument"), dict):
+            groups = natural["argument"].get("spawns_by_category")
+            costs = natural["argument"].get("spawn_costs")
+    if groups is None:
+        groups = body.get("spawners")
+        if costs is None:
+            costs = body.get("spawn_costs")
+    if not isinstance(groups, dict):
+        return [], {}
+
+    out: list[dict] = []
+    for category, entries in groups.items():
+        if not isinstance(entries, list):
+            continue
+        for spawn in entries:
+            if isinstance(spawn, dict):
+                row = _spawn_entry(spawn, category)
+                if row is not None:
+                    out.append(row)
+    return out, (costs if isinstance(costs, dict) else {})
 
 
 def _dedupe(refs: list[dict]) -> list[dict]:

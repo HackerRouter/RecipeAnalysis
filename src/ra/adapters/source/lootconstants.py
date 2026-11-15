@@ -89,7 +89,11 @@ def _parse_colors_from_text(text: str) -> list[str]:
 
 def _parse_colors(index: JavaIndex) -> list[str]:
     """从 `ColorCollection` 的定义处读出颜色顺序。找不到就返回空，由调用方降级。"""
-    for java in index.find_path_contains("ColorCollection.java"):
+    candidates = index.find_path_contains("ColorCollection.java")
+    found = index.load("ColorCollection")
+    if found is not None:
+        candidates = [*candidates, found]
+    for java in candidates:
         colors = _parse_colors_from_text(strip_comments(java.text))
         if colors:
             return colors
@@ -97,12 +101,16 @@ def _parse_colors(index: JavaIndex) -> list[str]:
 
 
 def parse_builtin_loot_tables(index: JavaIndex) -> LootConstants:
-    """解析 `BuiltInLootTables.java`。文件缺失返回空对象，调用方据此降级。"""
-    targets = index.find_path_contains("BuiltInLootTables.java")
-    if not targets:
+    """解析 `BuiltInLootTables.java`。文件缺失返回空对象，调用方据此降级。
+
+    常量表本身不含任何引用，按锚点分桶时进不了候选，所以不能只看
+    `index.files`；否则 1.18.2 整张表都解不出，所有代码侧的常量都变空。
+    """
+    target = index.load("BuiltInLootTables")
+    if target is None:
         return LootConstants()
 
-    text = strip_comments(targets[0].text)
+    text = strip_comments(target.text)
     constants = LootConstants()
     constants.colors = _parse_colors(index)
 
