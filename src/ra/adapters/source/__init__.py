@@ -21,6 +21,7 @@ from .idioms.drops import exported as drop_idioms
 from .idioms.fluid_buckets import exported as fluid_bucket_idioms
 from .idioms.interact import exported as interact_idioms
 from .idioms.loot_alias import exported as alias_idioms
+from .idioms.mining import exported as mining_idioms
 from .idioms.place import exported as place_idioms
 from .idioms.piglin_barter import exported as piglin_barter_idioms
 from .idioms.raid_waves import exported as raid_wave_idioms
@@ -34,6 +35,7 @@ from .index import ANCHORS, build_index
 from .verify import (
     known_structures,
     verify_drop_refs,
+    verify_mining_refs,
     verify_place_refs,
     verify_structure_refs,
     verify_table_refs,
@@ -47,6 +49,7 @@ __all__ = [
     "default_idioms",
     "known_structures",
     "verify_drop_refs",
+    "verify_mining_refs",
     "verify_place_refs",
     "verify_structure_refs",
     "verify_table_refs",
@@ -70,6 +73,7 @@ def default_idioms() -> list[Idiom]:
         *structure_entity_idioms(),
         *structure_container_idioms(),
         *death_drop_idioms(),
+        *mining_idioms(),
     ]
 
 
@@ -219,3 +223,4 @@ class SourceAdapter(Adapter):
         verify_place_refs(store)
         verify_drop_refs(store)
         verify_structure_refs(store)
+        verify_mining_refs(store)

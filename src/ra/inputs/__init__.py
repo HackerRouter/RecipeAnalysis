@@ -1,11 +1,12 @@
 """输入层：装配、校验、provenance。
 
-输入由使用方提供：一个 javap 源码树、一个数据包、一个服务端 jar。
-reports 与结构模板由 jar 跑出来，不需要人工准备。
+输入由使用方提供：一个反编译源码树、一个服务端 jar，以及可选的若干数据包。
+reports、结构模板与数据包覆盖合并结果由这些输入现场算出，不需要人工准备。
 """
 
 from .data import DataSource, ensure_data
 from .datagen import DatagenResult, run_datagen
+from .datapacks import DatapackMerge, ensure_datapack_merge
 from .java import JavaRuntime, probe_version, resolve_java
 from .jar import JarInfo, classpath, extract_bundler, inspect_jar
 from .manifest import Manifest, check_pack_layout, load_manifest, reconcile
@@ -16,6 +17,7 @@ from .structures import StructuresSource, ensure_structures
 __all__ = [
     "DataSource",
     "DatagenResult",
+    "DatapackMerge",
     "JarInfo",
     "JavaRuntime",
     "Manifest",
@@ -25,6 +27,7 @@ __all__ = [
     "check_pack_layout",
     "classpath",
     "ensure_data",
+    "ensure_datapack_merge",
     "ensure_reports",
     "ensure_source",
     "ensure_structures",

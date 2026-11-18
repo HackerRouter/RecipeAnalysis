@@ -12,6 +12,7 @@
 | `block_transform` | 一条事实对应一条变换规则（带 `transformer` / `from` / `to` / `soft`），不是文件；`prov` 指向数据包而非 `.java` |
 | `spawner_config` | 一条事实对应一个刷怪笼配置，形状是 `spawn_potentials`（实体 id + 权重） |
 | `structure_container` | 一条事实对应「一个结构类型上的一个容器绑定」（结构类型 + 容器形态 + 表 + 调用点数）。写成 `code_link` 会被编译层当成可达性规则，`holds` 更会被当成表别名 |
+| `mining` | 一条事实对应「一个方块 / 一个工具 / 一种材料的静态数值」（硬度、速度、规则表）。它不进 IR，写成 `code_link` 会被当成可达性前置 |
 
 同一种语义不能有第二种形状。`block_transform` 的两版来源不同（1.18.2 是 Java 静态表，26.3 是数据包注册表），但事实形状相同，只差 `transformer_kind` 与 `mode` 的取值。
 

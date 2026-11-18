@@ -44,8 +44,7 @@ from pathlib import Path
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
-from .base import Adapter, iter_json_files, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 
 FAMILY = "block_transform"
 REGISTRY = "block_transformer"
@@ -183,7 +182,8 @@ class BlockTransformerAdapter(Adapter):
             return
 
         ns, _, rel = claim.path.partition("/")
-        root = pack_data(pack_dir) / ns / rel
+        data = data_root(profile, pack_dir)
+        root = data / ns / rel
         if not root.is_dir():
             record(
                 store,
@@ -195,7 +195,7 @@ class BlockTransformerAdapter(Adapter):
             return
 
         for path in iter_json_files(root):
-            self._file(path, pack_dir, ns, rel, store)
+            self._file(path, data.parent, ns, rel, store)
 
     def _file(
         self, path: Path, pack_dir: Path, namespace: str, rel_root: str, store: FactStore

@@ -24,10 +24,9 @@ from ..mcshared.loot import (
     table_id_from_file,
     walk_entry,
 )
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
-from .base import Adapter, iter_json_files, record, rel_posix
 
 FAMILY = "loot_table"
 
@@ -57,9 +56,10 @@ class LootAdapter(Adapter):
             )
             return
         ns, _, rel = claim.path.partition("/")
-        root = pack_data(pack_dir) / ns / rel
+        data = data_root(profile, pack_dir)
+        root = data / ns / rel
         for path in iter_json_files(root):
-            self._one(path, pack_dir, root, store)
+            self._one(path, data.parent, root, store)
 
     def _one(self, path: Path, pack_dir: Path, root: Path, store: FactStore) -> None:
         file_label = rel_posix(path, pack_dir)

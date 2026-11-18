@@ -47,6 +47,26 @@ def pack_data(pack: Path) -> Path:
     return pack / "data"
 
 
+def pack_datapacks(pack: Path) -> Path:
+    """外来数据包目录。每项是一个含 `pack.mcmeta` 的目录或 `.zip`。"""
+    return pack / "datapacks"
+
+
+def pack_datapack_merged(pack: Path) -> Path:
+    """覆盖合并结果暂存根。根下 `data/` 即生效数据根。"""
+    return pack / "datapack-merged"
+
+
+def pack_data_merged(pack: Path) -> Path:
+    """生效数据根（合并结果侧）。没有数据包时该目录不存在。"""
+    return pack_datapack_merged(pack) / "data"
+
+
+def pack_pack_meta(pack: Path) -> Path:
+    """原版数据包的 `pack.mcmeta`，从内层 jar 派生，用作格式相容判据。"""
+    return pack / "pack.mcmeta"
+
+
 def pack_assets(pack: Path) -> Path:
     return pack / "assets"
 

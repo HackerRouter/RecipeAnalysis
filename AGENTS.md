@@ -22,9 +22,9 @@
 ## 项目红线
 
 1. `ref/` 只读：不 checkout、不建工作树、不写入、不改工作树状态。
-2. 输入包的第一手内容只读：不改用户提供的 `server.jar` 与 `java/`。`data/`、`version.json`、`java.json` 是派生，`manifest.toml` 是配置，由 `ra inputs init` 维护。无 `java.json` 的 `java/` 视为第一手内容，覆盖需显式 `--force`。
-3. 扫描不到的东西不得静默跳过，必须显式登记：只有 `type` 的配方、`dynamic` 战利品条目、数据包内无引用点的代码绑定，一律留痕。
-4. 产物必须带 provenance：`run.json` 记录 `jar_sha256`、`ir_schema`、`facts_digest`、`content_commit` 与 `source_repo`。前三项缺失则报告不可复算；提交号未配置时记 `null`，此时代码侧结论不可复算。`graph.json` 只带 `graph_schema` / `ir_schema` / `facts_digest`，能判断是否过期，不能证明来自哪个 jar——引用图上的结论时另引 `run.json`。
+2. 输入包的第一手内容只读：不改用户提供的 `server.jar`、`java/` 与 `datapacks/`。`data/`、`version.json`、`pack.mcmeta`、`java.json`、`datapack-merged/` 是派生，`manifest.toml` 是配置，由 `ra inputs init` 维护。无 `java.json` 的 `java/` 视为第一手内容，覆盖需显式 `--force`。数据包的加载顺序只在配置里定，不改包内文件，也不靠文件名排序静默决定。
+3. 扫描不到的东西不得静默跳过，必须显式登记：只有 `type` 的配方、`dynamic` 战利品条目、数据包内无引用点的代码绑定、被更高优先级数据包覆盖或被 `filter` 屏蔽的源文件，一律留痕。
+4. 产物必须带 provenance：`run.json` 记录 `jar_sha256`、`ir_schema`、`facts_digest`、`content_commit` 与 `source_repo`。前三项缺失则报告不可复算；提交号未配置时记 `null`，此时代码侧结论不可复算。`graph.json` 只带 `graph_schema` / `ir_schema` / `facts_digest`，能判断是否过期，不能证明来自哪个 jar——引用图上的结论时另引 `run.json`。数据包覆盖生效时，`profile.json` 的 `datapack_merge` 记录每个包的摘要与合并计数，`merge-log.jsonl` 记录逐处覆盖；数据包内容变了，事实就不可比。
 
 ## 文档
 

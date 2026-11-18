@@ -29,6 +29,10 @@ from .structures import REPORTS_KEY_ARGS
 
 MARKER_NAME = "data.json"
 TEMPLATE_SUFFIXES = (".nbt", ".snbt")
+# 内层 jar 根目录里除 data/ 之外还要派生的文件。
+# `version.json` 是版本坐标的原始事实；`pack.mcmeta` 是数据包格式号，
+# 用于判外来数据包的 pack_format 是否相容。
+EXTRA_FILES = ("version.json", "pack.mcmeta")
 
 
 @dataclass(frozen=True)
@@ -74,9 +78,16 @@ def ensure_data(manifest: Manifest, cache_root: Path, *, force: bool = False) ->
             recorded = json.loads(marker.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             recorded = {}
-        files = sum(1 for p in dest.rglob("*") if p.is_file())
-        if recorded.get("jar_sha256") == jar_digest and recorded.get("files") == files:
-            return DataSource(dest, files, jar_digest, cache_hit=True)
+        data_files = sum(1 for p in dest.rglob("*") if p.is_file())
+        extra_files = sum(
+            1 for name in EXTRA_FILES if (manifest.pack_dir / name).is_file()
+        )
+        if (
+            recorded.get("jar_sha256") == jar_digest
+            and recorded.get("data_files") == data_files
+            and recorded.get("extra_files") == extra_files
+        ):
+            return DataSource(dest, data_files, jar_digest, cache_hit=True)
 
     inner = _find_inner_jar(manifest, cache_root)
     if inner is None:
@@ -87,6 +98,7 @@ def ensure_data(manifest: Manifest, cache_root: Path, *, force: bool = False) ->
     if dest.exists():
         shutil.rmtree(dest)
     count = 0
+    extra = 0
     with zipfile.ZipFile(inner) as archive:
         for name in archive.namelist():
             if name.endswith("/"):
@@ -95,20 +107,31 @@ def ensure_data(manifest: Manifest, cache_root: Path, *, force: bool = False) ->
                 if name.lower().endswith(TEMPLATE_SUFFIXES):
                     continue  # 模板由 structures 族从 jar 直接转，不落这里
                 target = manifest.pack_dir / name
-            elif name == "version.json":
-                # 版本坐标是 jar 内的事实，一并派生，省掉用户准备
-                target = manifest.pack_dir / "version.json"
+            elif name in EXTRA_FILES:
+                # 版本坐标与数据包格式号是 jar 内的事实，一并派生，省掉用户准备
+                target = manifest.pack_dir / name
+                extra += 1
             else:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(name) as src, target.open("wb") as out:
                 shutil.copyfileobj(src, out)
-            count += 1
+            if name.startswith("data/"):
+                count += 1
 
     marker.write_text(
-        json.dumps({"jar_sha256": jar_digest, "files": count}, indent=2) + "\n",
+        json.dumps(
+            {
+                "jar_sha256": jar_digest,
+                "data_files": count,
+                "extra_files": extra,
+                "files": count + extra,
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
         newline="\n",
     )
-    print(f"由 jar 派生数据包：{count} 个文件 → {dest}", file=sys.stderr)
+    print(f"由 jar 派生数据包：{count} 个文件（另 {extra} 个根文件）→ {dest}", file=sys.stderr)
     return DataSource(dest, count, jar_digest, cache_hit=False)

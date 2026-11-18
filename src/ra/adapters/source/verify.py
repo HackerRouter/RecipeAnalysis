@@ -32,10 +32,65 @@ from .common import FAMILY, JAVA_PREFIX
 __all__ = [
     "known_structures",
     "verify_drop_refs",
+    "verify_mining_refs",
     "verify_place_refs",
     "verify_structure_refs",
     "verify_table_refs",
 ]
+
+
+def verify_mining_refs(store: FactStore) -> None:
+    """`mining` 事实的方块与物品必须落在注册表全集里。
+
+    硬度与速度都是从注册点的字面量推出来的，注册名一旦推错，数值再对也没用：
+    下游拿到的是不存在的方块 id。多出来的直接剔除并留台账，缺的记失败——
+    前者说明解析器认错了名字，后者说明有注册形态没覆盖到。
+    """
+    blocks = _registry_entries(store, "minecraft:block")
+    items = _registry_entries(store, "minecraft:item")
+    if not blocks or not items:
+        return
+
+    extra_blocks: set[str] = set()
+    extra_items: set[str] = set()
+    for fact in list(store.of_kind("mining")):
+        payload = fact.payload
+        if payload.get("form") == "block" and payload["block"] not in blocks:
+            extra_blocks.add(payload["block"])
+            store.drop(fact)
+        elif payload.get("form") == "tool" and payload["item"] not in items:
+            extra_items.add(payload["item"])
+            store.drop(fact)
+
+    for label, extra in (("block", extra_blocks), ("tool", extra_items)):
+        if not extra:
+            continue
+        record(
+            store,
+            f"{JAVA_PREFIX}/<mining:extra-{label}>",
+            FAMILY,
+            status=LedgerStatus.CLASSIFIED_SKIP,
+            rule=f"挖掘事实的 {label} id 不在注册表",
+            note=f"{len(extra)} 条已剔除：{', '.join(sorted(extra)[:8])}",
+        )
+
+    parsed = {
+        fact.payload["block"]
+        for fact in store.of_kind("mining")
+        if fact.payload.get("form") == "block"
+    }
+    missing = sorted(blocks - parsed)
+    if missing:
+        record(
+            store,
+            f"{JAVA_PREFIX}/<mining:missing-blocks>",
+            FAMILY,
+            status=LedgerStatus.FAILED,
+            error=(
+                f"{len(missing)} 个注册方块没有硬度事实，"
+                f"注册形态未覆盖：{', '.join(missing[:8])}"
+            ),
+        )
 
 
 def _registry_entries(store: FactStore, registry: str) -> set[str]:

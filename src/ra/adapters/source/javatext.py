@@ -159,7 +159,7 @@ def find_constructor_calls(text: str, class_name: str) -> list[ConstructorCall]:
     calls: list[ConstructorCall] = []
     for match in pattern.finditer(text):
         open_paren = text.index("(", match.start())
-        close = _match_paren(text, open_paren)
+        close = match_paren(text, open_paren)
         if close < 0:
             continue
         inner = text[open_paren + 1 : close]
@@ -173,7 +173,8 @@ def find_constructor_calls(text: str, class_name: str) -> list[ConstructorCall]:
     return calls
 
 
-def _match_paren(text: str, open_index: int) -> int:
+def match_paren(text: str, open_index: int) -> int:
+    """从 `(` 位置起找配对的 `)`，返回 `)` 的下标；找不到返回 -1。"""
     depth = 0
     i = open_index
     n = len(text)

@@ -18,8 +18,7 @@ from pathlib import Path
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
-from .base import Adapter, iter_json_files, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 
 FAMILY = "worldgen"
 
@@ -122,12 +121,12 @@ class WorldgenAdapter(Adapter):
         )
 
     def _from_datapack(self, profile: Profile, pack_dir: Path, store: FactStore) -> None:
-        data_root = pack_data(pack_dir)
+        data = data_root(profile, pack_dir)
         for key in profile.worldgen_counts:
             ns, _, rel = key.partition("/")
-            root = data_root / ns / "worldgen" / rel
+            root = data / ns / "worldgen" / rel
             for path in iter_json_files(root):
-                self._one(path, pack_dir, pack_dir, _kind_of(rel), store)
+                self._one(path, data.parent, data.parent, _kind_of(rel), store)
 
     def _from_reports(self, profile: Profile, pack_dir: Path, store: FactStore) -> None:
         if profile.reports_root is None:

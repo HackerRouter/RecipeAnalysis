@@ -13,8 +13,7 @@ from ..mcshared.recipes import parse_ingredient, parse_result
 from ..mcshared.recipes import normalize_recipe
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
-from .base import Adapter, iter_json_files, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 
 FAMILY = "recipe"
 
@@ -36,9 +35,9 @@ class RecipeAdapter(Adapter):
             )
             return
         ns, _, rel = claim.path.partition("/")
-        root = pack_data(pack_dir) / ns / rel
-        for path in iter_json_files(root):
-            self._one(path, pack_dir, store)
+        data = data_root(profile, pack_dir)
+        for path in iter_json_files(data / ns / rel):
+            self._one(path, data.parent, store)
 
     def _one(self, path: Path, pack_dir: Path, store: FactStore) -> None:
         file_label = rel_posix(path, pack_dir)

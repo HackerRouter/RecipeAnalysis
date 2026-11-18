@@ -18,8 +18,11 @@
 |---|---|---|
 | `server.jar` | 第一手 | 用户提供 |
 | `java/` | 第一手，或由反编译源码仓按提交导出 | 用户提供，或 `manifest.toml` 的 `[source]` |
+| `datapacks/` | 第一手，可选 | 用户提供；每项是含 `pack.mcmeta` 的目录或 `.zip` |
 | `data/` | 派生 | 从 jar 内层解出，排除模板 |
 | `version.json` | 派生 | 从 jar 内层解出 |
+| `pack.mcmeta` | 派生 | 从 jar 内层解出；内层通常没有该文件，缺失不算失败 |
+| `datapack-merged/` | 派生 | 原版数据与 `datapacks/` 的覆盖合并结果 |
 | `java.json` | 派生 | 导出时写的 marker |
 | `assets/` | 可选 | 提供时逐文件登记台账，未提供不视为缺失 |
 
@@ -28,6 +31,34 @@
 派生内容不得手工放置。`data/` 与反编译源码树的 `resources/data` 除结构模板外逐一同名同路径，因此数据包不必从 `--server` 导出取得。
 
 反编译源码仓的提交号由用户显式配置，程序不推导（[ADR 0001](adr/0001-inputs-and-source-export.md)）。导出用 `git archive <提交>:<Java 源码根>`，不 checkout。Java 源码根由特征文件定位，不查候选目录表。
+
+## 数据包覆盖
+
+**位置**：`inputs/<label>/datapacks/` 是外来数据包，`inputs/<label>/datapack-merged/` 是合并结果。
+
+**每项的形状**：带 `pack.mcmeta` 的目录，或根下含 `pack.mcmeta` 的 `.zip`。既不是目录也不是 `.zip` 的条目一律报错。
+
+**`pack.mcmeta` 的段**：
+
+| 段 | 用途 |
+|---|---|
+| `pack` | 格式范围：新式 `min_format` / `max_format`（可带 minor），旧式 `pack_format` / `supported_formats` |
+| `overlays` | `entries[].directory` 指向包内子目录，带自己的格式范围；按当前格式筛出适用的层 |
+| `filter` | `block[]` 的 `namespace` / `path` 正则，屏蔽更低优先级的包 |
+
+**顺序**：版本段的 `datapacks = [...]` 按低到高列出。目录里有而未列出的包报错，列表里有而不存在的包也报错——两种都是输入与配置不一致。未配置列表时按名称升序加载并记 `notes`。
+
+**包内优先级**：包根最高，其后是适用 overlay 的逆序（后列出者优先）。因此包根的同名定义不会被某个版本的补丁盖掉，而两个 overlay 冲突时以后者为准。
+
+**合并结果的结构**：`data/` 即生效数据根，`merge-log.jsonl` 逐行记录覆盖与标签合并，`.datapack-merge.json` 是失效判据与包摘要。没有数据包时不生成该目录，生效数据根就是 `data/`。
+
+**生效数据根只有一个读入口**：探测写入 `Profile.data_root`，适配器一律读它。目录归属、方言、标签归属都相对它计算，因此合并后看到的目录形状就是游戏看到的那份。
+
+覆盖与合并的语义、失败与留痕的分界，见 [ADR 0014](adr/0014-datapack-overlay.md)。
+
+**数据包内的 `assets/` 不入合并结果**：数据包合并只作用于 `data/` 侧。这些文件在台账里逐条登记为「非 data/ 内容」。
+
+**内置实验包仍整棵排除**：`data/<ns>/datapacks/` 下的包按 Feature Flag 启用，默认关闭；覆盖功能不改变这条判据。
 
 ## 数据包目录归属
 
@@ -38,6 +69,8 @@
 **归属覆盖率**是判据的一部分：覆盖率过低说明该目录的内容大多不属于这个注册表，此时记 `unknown`，不强行归属。
 
 **必须整棵排除的目录**：数据包里的实验包目录（形如 `datapacks/<包名>/`）不属于原版。其中有的包含真实内容（会与主数据包的同名条目互斥），误纳入会让同一职业等级同时出现两套互斥交易。
+
+外来数据包不放这里，它们是 `inputs/<label>/datapacks/` 的第一手输入，按覆盖规则合并（见下节）。
 
 **探测到但形状不明确的目录**必须记进 `notes`，不得默认为不存在。`ra guide` 会将其列出，可作为新增适配器的候选来源。
 
@@ -386,6 +419,27 @@ arg2/arg3；7 参重载显式给出，整体后移一位。判据是实参个数
 **逆变换**：有的表声明为另一张表的 inverse，方向须翻转。
 
 **由构造器参数驱动的表不抽取**：形态是 `表.put(参数, this)`，参数是变量而非字面量，按「不做构造器推断」的边界处理，逐表记台账。
+
+## 挖掘机制（代码侧数值）
+
+**位置**：输入包的反编译源码。方块只在 `Blocks.java` 注册，工具只在 `Items.java` 声明；两类都按**调用形态**定位，不按类名或字段名。
+
+| 环节 | 形态 | 读法 |
+|---|---|---|
+| 方块硬度 | `Properties` 链 | `strength(a[, b])` / `destroyTime(a)` / `instabreak()`；缺省 0.0；`-1` 表示挖不动 |
+| 复制 | `ofLegacyCopy` / `ofFullCopy` / `copy`（旧版） | 只继承硬度、爆炸抗性、`requiresCorrectToolForDrops` |
+| 复制包装（26.3） | `registerStair` / `registerWall` / `registerSlab` / `registerLegacyStair` | 底方块 + `registerSlab` 的可选硬度覆盖 |
+| 集合注册（26.3） | `ColorCollection.registerBlocks` / `zipMap`、`WeatheringCopperCollection.registerBlocks` | 16 色、4 态 × (未涂蜡 / 涂蜡) |
+| 辅助工厂（1.18.2） | `Blocks.log(...)` / `leaves(...)` / `bed(...)` / `stainedGlass(...)` | `Properties` 在方法体里，按返回方块的静态工厂展开 |
+| 构造器改写 | 构造器对同一个 `Properties` 就地改写 | 实测只有侵染方块：`destroyTime(host.defaultDestroyTime() / 2)`、抗爆 0.75 |
+| 工具速度（26.3） | 物品组件 `DataComponents.TOOL` | `new Tool(List.of(Rule...), default, ...)`，规则按声明顺序生效 |
+| 工具速度（1.18.2） | `Tier.getSpeed()` + 工具类的 `getDestroySpeed` 覆写 | 方块在工具标签内取材料速度，否则 1.0；等级门槛另记 |
+
+**规则是有序的**：先命中先返回。`speed: null` 只声明「是否算正确工具」，不改速度；`Float.MAX_VALUE` 一类哨兵原样保留，不折算。
+
+**对账**：解析出的方块集合必须等于 `registry` 事实的 `minecraft:block`，工具集合必须是 `minecraft:item` 的子集。多出来的 id 剔除并留台账，缺的记失败——集合展开漏一色、复制包装漏一种，只会表现成「表里少了些行」，而行数本身随版本变化。
+
+**挖掘进度**：每 tick 进度 = `玩家速度 / hardness / (正确工具 ? 30 : 100)`，累计到 1 破坏；`-1` 时进度恒为 0。玩家侧的效率、急迫、疲劳与水中/空中修正取自 `Player.getDestroySpeed` 的常量，取不到的记 `partial`。判据与取舍见 [ADR 0015](adr/0015-mining-mechanics.md)。
 
 ## 代码侧的获取关系
 

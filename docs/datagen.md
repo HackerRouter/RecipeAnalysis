@@ -29,6 +29,16 @@
 
 `--input` 的根是 `data/` 的上一级。转换器用 `root.relativize(path)` 生成产物名；`StructureUpdater` 只处理以 `data/minecraft/structure/` 开头的名字。`--server` 或 `--dev` 不给 `--input` 时，对应转换器没有输入，不产出任何模板。
 
+## data generator 不处理数据包
+
+数据生成器不是数据包加载器，不能用它代劳覆盖合并。
+
+判据：`Main` 注册的 providers 全部从 `VanillaRegistries` 取注册数据，`--input` 只传给 `SnbtToNbt` 与 `NbtToSnbt`。它不读 `pack.mcmeta`，也没有加载顺序的概念。把数据包根交给 `--server --input` 得到的是被重写的模板，不是合并后的数据包（未改 palette 就报 `Multiple entries with same key`）。
+
+生成器仍被用于两件事：产出运行期导出，以及把模板 `.nbt` 升级并转成 `.snbt`。数据包带入的模板并进同一批转换，因此同样经过 `DataFixTypes.STRUCTURE`。
+
+覆盖语义与落盘位置见 [ADR 0014](adr/0014-datapack-overlay.md)。
+
 ## 结构模板的转换方向
 
 `.snbt` 是打包形态，`.nbt` 是展开形态：

@@ -8,8 +8,11 @@ inputs/
   <label>/
     server.jar           第一手：服务端 jar
     java/                第一手（或由仓库导出，见下）
+    datapacks/           第一手（可选）：外来数据包，目录或 .zip
     data/                派生：从 jar 内层解出
+    pack.mcmeta          派生：从 jar 内层解出
     version.json         派生：从 jar 内层解出
+    datapack-merged/     派生：数据包覆盖合并结果
 ```
 
 配置以版本目录为准：目录在就补一段配置，配置里有但目录不在就忽略该段。
@@ -32,6 +35,13 @@ content_commit = "c1fd2a862"
 提交号必须显式给出，不推导：一个仓库的工作树只停在一个版本，HEAD 只对应其中一份
 快照，拿它当某个版本的提交号会得到「看起来可信的错值」。没配 `content_commit` 的
 版本则直接用手放的 `inputs/<label>/java/`，provenance 记 `null`。
+
+## 数据包
+
+`datapacks/` 下每一项都是用户提供的第一手数据包（含 `pack.mcmeta` 的目录或 `.zip`）。
+加载顺序决定覆盖结果，因此**顺序必须显式给出**：版本段的 `datapacks = [...]`
+按「低 → 高」列出。目录里存在但列表里没有的包会报错，不静默忽略——
+静默跳过等于悄悄改动输入。
 """
 
 from __future__ import annotations
@@ -58,6 +68,8 @@ class Manifest:
     source_repo: Path | None = None
     # 源码根在仓库里的路径；一般留空由特征文件自动定位，多于一份源码树时必须写。
     source_path: str | None = None
+    # 外来数据包的加载顺序，低 → 高（后者覆盖前者）。空表示没有数据包。
+    datapacks: tuple[str, ...] = ()
     notes: list[str] = field(default_factory=list)
 
     def resolve(self, rel: str | None) -> Path | None:
@@ -128,6 +140,12 @@ def _write_sections(path: Path, sections: dict[str, dict], source: dict) -> None
             lines.append(f'"source_path" = "{src_path}"')
         java = body.get("java_home")
         lines.append(f'"java_home" = "{java}"' if java else '# "java_home" = "<JDK 根目录>"')
+        packs = body.get("datapacks")
+        if isinstance(packs, list) and packs:
+            listed = ", ".join(f'"{item}"' for item in packs)
+            lines.append(f"datapacks = [{listed}]")
+        else:
+            lines.append('# datapacks = ["<包名或包.zip>", ...]   # 低 → 高，后加载者覆盖前者')
         lines.append("")
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8", newline="\n")
 
@@ -141,7 +159,7 @@ def _version_key(label: str) -> tuple:
 
 
 # 版本段里允许出现的键。不在其中的旧键会被 `reconcile` 顺手清掉。
-KNOWN_KEYS = frozenset({"java_home", "content_commit", "source_path"})
+KNOWN_KEYS = frozenset({"java_home", "content_commit", "source_path", "datapacks"})
 
 
 def reconcile(root: Path) -> tuple[list[str], list[str], Path]:
@@ -193,6 +211,7 @@ def load_manifest(pack_dir: Path) -> Manifest:
 
     commit = section.get("content_commit")
     path = section.get("source_path")
+    packs = section.get("datapacks")
     return Manifest(
         label=label,
         content_commit=str(commit) if commit else None,
@@ -200,6 +219,7 @@ def load_manifest(pack_dir: Path) -> Manifest:
         java_home=section.get("java_home"),
         source_repo=_resolve_repo(repo_root(pack_dir), source.get("repo")),
         source_path=path if isinstance(path, str) and path.strip() else None,
+        datapacks=tuple(str(item) for item in packs) if isinstance(packs, list) else (),
     )
 
 

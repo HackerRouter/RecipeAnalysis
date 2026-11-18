@@ -134,14 +134,36 @@ def _probe_template_source(structures, profile: Profile) -> None:
     profile.add_unresolved("结构模板两处都不可得，结构族将全部为 UNKNOWN")
 
 
+def probe_pack_anchors(data_root: Path, namespaces: list[str]) -> dict[str, set[str]]:
+    """把每个命名空间下的数据包目录编译成锚点，按目录名合并。
+
+    必须覆盖**全部**命名空间：数据包很少只装 `minecraft`，自己带一个命名空间
+    （`data/<包名>/worldgen/...`）是常态。只取第一个命名空间会丢掉 `minecraft`
+    侧的注册表锚点，标签归属整片退化成「按目录名」，错得无声。
+
+    按目录名合并而不是带命名空间前缀：成员匹配本来就去掉前缀（`Anchors._normalize`），
+    同名注册表在两个命名空间下就是同一个条目池。
+    """
+    merged: dict[str, set[str]] = {}
+    for namespace in namespaces or ["minecraft"]:
+        for anchor, entries in datapack_entries(data_root, namespace, ("datapacks",)).items():
+            merged.setdefault(anchor, set()).update(entries)
+    return merged
+
+
 def build_profile(
     pack_dir: Path,
     manifest: Manifest,
     reports: ReportsSource,
     registries: Registries,
     structures=None,
+    merge=None,
 ) -> Profile:
-    """跑全部探测，返回 Profile。顺序有依赖，见各行注释。"""
+    """跑全部探测，返回 Profile。顺序有依赖，见各行注释。
+
+    `merge` 是 `inputs.datapacks.ensure_datapack_merge` 的结果。给了就以它的
+    `data_root` 为生效数据根；没给则退回原版派生目录（无数据包时的等价路径）。
+    """
     profile = Profile(
         label=manifest.label,
         content_commit=manifest.content_commit,
@@ -152,7 +174,12 @@ def build_profile(
     profile.registry_counts = registries.counts()
     _probe_reports(reports, profile)
 
-    data_root = pack_data(pack_dir)
+    data_root = Path(merge.data_root) if merge is not None else pack_data(pack_dir)
+    profile.data_root = str(data_root)
+    profile.datapack_merge = merge.as_json() if merge is not None else {}
+    for note in getattr(merge, "notes", ()) or ():
+        if note not in profile.notes:
+            profile.notes.append(note)
     # 目录归属要先于模板：模板目录是「全 SNBT」这条形状规则判出来的
     probe_datapack_dirs(data_root, profile)
     _probe_template_source(structures, profile)
@@ -160,9 +187,8 @@ def build_profile(
     probe_loot_dialect(data_root, profile)
     worldgen_anchors = probe_worldgen(data_root, profile)
 
-    # 锚点要在目录扫描之后建：数据包驱动的注册表靠目录本身锚定。
-    namespace = profile.namespaces[0] if profile.namespaces else "minecraft"
-    pack_anchors = datapack_entries(data_root, namespace, ("datapacks",))
+    # 锚点要在目录扫描之后建：数据包驱动的注册表靠目录本身锚定
+    pack_anchors = probe_pack_anchors(data_root, profile.namespaces)
     pack_anchors.update(worldgen_anchors)
     anchors = Anchors(registries, pack_anchors)
     probe_tag_dirs(data_root, anchors, profile)

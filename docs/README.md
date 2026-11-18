@@ -9,6 +9,7 @@
 | 跑起来、看产物长什么样 | 根目录 [README](../README.md) |
 | 改代码，先确认改动该落在哪一层 | [`development.md`](development.md) |
 | 适配新版本，或新增一类数据来源 | [`shapes.md`](shapes.md)，再 [`datagen.md`](datagen.md) |
+| 让分析对象变成游戏里实际生效的数据包配置 | [`shapes.md`](shapes.md) 的「数据包覆盖」，再 [`adr/0014-datapack-overlay.md`](adr/0014-datapack-overlay.md) |
 | 知道某个决定为什么这样定 | [`adr/`](adr/)，同一主题的决策成组一份 |
 
 | 文件 | 回答什么 |

@@ -84,6 +84,18 @@ def _section_provenance(profile: dict, root: str | None) -> list[str]:
     return lines
 
 
+def _describe_merge(merge: dict) -> str | None:
+    """一行说清数据包覆盖是否生效。"""
+    if merge.get("mode") != "merged":
+        return "未启用（无 datapacks/ 输入）"
+    packs = merge.get("packs") or []
+    names = "、".join(str(pack.get("name")) for pack in packs)
+    return (
+        f"{names}：覆盖 {merge.get('overrides')} 处、"
+        f"标签合并 {merge.get('tag_merges')} 处、filter 屏蔽 {merge.get('filtered')} 处"
+    )
+
+
 def _section_inputs(profile: dict, root: str | None) -> list[str]:
     reports = profile.get("reports") or {}
     lines = ["## 输入布局", ""]
@@ -94,10 +106,65 @@ def _section_inputs(profile: dict, root: str | None) -> list[str]:
         ["默认组件目录", _path(reports.get("components_dir"), root)],
         ["`datapack.json`", reports.get("datapack_capability")],
         ["`blocks.json`", reports.get("block_report")],
+        ["生效数据根", _path(profile.get("data_root"), root)],
+        ["数据包覆盖", _describe_merge(profile.get("datapack_merge") or {})],
         ["命名空间", "、".join(profile.get("namespaces") or []) or None],
     ]))
     lines.append("")
     lines.append("各项的取值与判据见 [`docs/shapes.md`](../../docs/shapes.md) 的「运行期导出」一节。")
+    lines.append("")
+    return lines
+
+
+def _describe_formats(formats: object) -> str | None:
+    """`{"min": [maj, min], "max": [...]}` → `100.0–121.0`。"""
+    if not isinstance(formats, dict):
+        return None
+    low = formats.get("min")
+    high = formats.get("max")
+    if not (isinstance(low, list) and isinstance(high, list)):
+        return None
+    return f"{'.'.join(str(v) for v in low)}–{'.'.join(str(v) for v in high)}"
+
+
+def _describe_overlays(pack: dict) -> str | None:
+    overlays = pack.get("overlays") or []
+    if not overlays:
+        return None
+    active = [item for item in overlays if item.get("applicable")]
+    return f"{len(active)}/{len(overlays)} 适用"
+
+
+def _section_datapacks(profile: dict, root: str | None) -> list[str]:
+    """外来数据包：哪些包生效、按什么顺序、覆盖了多少。"""
+    merge = profile.get("datapack_merge") or {}
+    lines = ["## 数据包覆盖", ""]
+    if merge.get("mode") != "merged":
+        lines.extend(["本次输入没有外来数据包，生效数据根就是原版派生目录。", ""])
+        return lines
+
+    packs = merge.get("packs") or []
+    lines.extend(_table(
+        ["包", "形态", "格式范围", "data 文件", "overlay", "摘要"],
+        [
+            [
+                pack.get("name"),
+                pack.get("kind"),
+                _describe_formats(pack.get("formats")),
+                pack.get("data_files"),
+                _describe_overlays(pack),
+                (pack.get("digest") or "")[:12],
+            ]
+            for pack in packs
+        ],
+    ))
+    lines.append("")
+    lines.append(f"合并结果 {merge.get('files')} 个文件 → {_path(merge.get('root'), root)}")
+    lines.append("")
+    for note in merge.get("notes") or []:
+        lines.append(f"- {note}")
+    lines.append("")
+    lines.append("合并语义见 [`docs/shapes.md`](../../docs/shapes.md) 的「数据包覆盖」一节。")
     lines.append("")
     return lines
 
@@ -333,6 +400,7 @@ def render_guide(*, profile: dict,
     for part in (
         _section_provenance(profile, root),
         _section_inputs(profile, root),
+        _section_datapacks(profile, root),
         _section_dirs(profile),
         _section_tag_dirs(profile),
         _section_templates(profile, root),

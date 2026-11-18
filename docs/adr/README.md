@@ -17,3 +17,5 @@
 | [`0011-structure-layout-exports.md`](0011-structure-layout-exports.md) | 结构布局的四张白名单表、拼图关系进事实、台账三态 |
 | [`0012-interaction-sources.md`](0012-interaction-sources.md) | 交互表的持有者与工具前置、类名到注册名的取法、无表交互落哪 |
 | [`0013-spawn-tables.md`](0013-spawn-tables.md) | 刷怪权的四处来源归一、权重不折算、均匀数组不进表 |
+| [`0014-datapack-overlay.md`](0014-datapack-overlay.md) | 数据包覆盖为何自己实现、合并语义、生效数据根与失败边界 |
+| [`0015-mining-mechanics.md`](0015-mining-mechanics.md) | 挖掘时间机制为何进事实、硬度为何从源码取值、集合与复制包装的判据 |

@@ -15,8 +15,7 @@ from pathlib import Path
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
 from ..mcshared.snbt import SnbtError, normalize_template, parse_snbt, template_id_from_file
 from ..probe.profile import Profile
-from .base import Adapter, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, record, rel_posix
 
 FAMILY = "template"
 
@@ -91,11 +90,11 @@ class TemplateAdapter(Adapter):
         不可用时才退回，并在 profile 里留痕（见 `_probe_template_source`）。
         """
         if profile.template_source == "jar" and profile.template_root and profile.template_dir:
-            data_root = Path(profile.template_root) / "data"
+            templates_root = Path(profile.template_root) / "data"
             input_kind = "jar"
-            label_base = None  # 相对 data_root 的父目录记账
+            label_base = None  # 相对数据根的父目录记账
         elif profile.template_dir:
-            data_root = pack_data(pack_dir)
+            templates_root = data_root(profile, pack_dir)
             input_kind = "src"
             label_base = pack_dir
         else:
@@ -109,8 +108,8 @@ class TemplateAdapter(Adapter):
             return
 
         ns, _, rel = profile.template_dir.partition("/")
-        root = data_root / ns / rel
-        base = label_base if label_base is not None else data_root.parent
+        root = templates_root / ns / rel
+        base = label_base if label_base is not None else templates_root.parent
         paths = sorted(p for p in root.rglob("*.snbt") if p.is_file())
         if not paths:
             record(
@@ -157,7 +156,7 @@ class TemplateAdapter(Adapter):
         if not profile.template_dir_src:
             return
         s_ns, _, s_rel = profile.template_dir_src.partition("/")
-        src_root = pack_data(pack_dir) / s_ns / s_rel
+        src_root = data_root(profile, pack_dir) / s_ns / s_rel
         for path in sorted(p for p in src_root.rglob("*.snbt") if p.is_file()):
             record(
                 store,

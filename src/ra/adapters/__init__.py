@@ -11,7 +11,7 @@ from pathlib import Path
 from ..errors import AdapterError
 from ..facts import FactStore, LedgerStatus
 from ..probe.profile import Profile
-from .base import Adapter, record
+from .base import Adapter, data_root, record
 from .block_transform import BlockTransformerAdapter
 from .components import ComponentsAdapter
 from .loot import LootAdapter
@@ -24,7 +24,7 @@ from .tags import TagAdapter
 from .templates import TemplateAdapter
 from .trades import TradeAdapter
 from .worldgen import WorldgenAdapter
-from ..paths import pack_assets, pack_data
+from ..paths import pack_assets
 
 # 已知且会被解析或明确排除的扩展名。其余扩展名出现即硬失败。
 KNOWN_SUFFIXES = frozenset({".json", ".snbt", ".png", ".mcmeta", ".txt", ".lang", ".json5"})
@@ -60,29 +60,30 @@ def run_adapters(
 def audit_tree(profile: Profile, pack_dir: Path, store: FactStore) -> list[str]:
     """核对每个输入文件都有交代。
 
-    审计范围是 `src/main/resources/` 下的 `data/` 与 `assets/`：
-    前者是获取路径的输入，后者是资源（含物品全集的第二条途径）。
+    审计范围是生效数据根与 `assets/`：
+    前者是获取路径的输入（无数据包时就是原版派生目录），后者是资源（含物品全集的第二条途径）。
     反编译源码不在本阶段范围，属 code_link 族。
 
     返回未登记的文件（首若干条），空列表表示全覆盖。
     实验包整棵排除要带规则名，不能默默不算。
     """
     registered = {row.file for row in store.ledger.rows}
-    resources_root = pack_dir
-    data_root = resources_root / "data"
+    data = data_root(profile, pack_dir)
 
     unaccounted: list[str] = []
     unknown_suffix: list[str] = []
 
-    roots = [d for d in (data_root, resources_root / "assets") if d.is_dir()]
-    if not roots:
-        return unaccounted
-
     excluded_prefixes = tuple(f"data/{d}/" for d in profile.excluded_dirs)
 
-    for root in roots:
+    # 两棵树的相对基准不同：数据根在其父目录下恒为 `data/`，
+    # 合并结果也遵守这条契约；assets 始终在输入包根下。
+    roots = [(data, data.parent), (pack_assets(pack_dir), pack_dir)]
+
+    for root, base in roots:
+        if not root.is_dir():
+            continue
         for path in sorted(p for p in root.rglob("*") if p.is_file()):
-            rel = path.relative_to(pack_dir).as_posix()
+            rel = path.relative_to(base).as_posix()
             if rel.startswith(excluded_prefixes):
                 continue
             if path.name in BUILD_MARKERS:
@@ -117,9 +118,9 @@ def audit_tree(profile: Profile, pack_dir: Path, store: FactStore) -> list[str]:
 
 def skip_excluded_dirs(profile: Profile, pack_dir: Path, store: FactStore) -> None:
     """实验包整棵排除，逐目录登记规则名。"""
-    data_root = pack_data(pack_dir)
+    data = data_root(profile, pack_dir)
     for rel in profile.excluded_dirs:
-        target = data_root / rel
+        target = data / rel
         count = sum(1 for _ in target.rglob("*") if _.is_file()) if target.is_dir() else 0
         record(
             store,
@@ -161,14 +162,14 @@ def skip_inert_registries(profile: Profile, pack_dir: Path, store: FactStore) ->
     这不是「白名单」：判据是「没有适配器负责这一族」，不是逐条列出注册名。
     方案要求每个输入文件都有一行交代，因此不按目录汇总。
     """
-    data_root = pack_data(pack_dir)
+    data = data_root(profile, pack_dir)
     covered = {claim.path for claim in profile.dirs.values()}
     covered |= {tag.path for tag in profile.tag_dirs.values()}
     if profile.template_dir:
         covered.add(profile.template_dir)
     covered |= {f"{key.split('/')[0]}/worldgen" for key in profile.worldgen_counts}
 
-    for ns_dir in sorted(p for p in data_root.iterdir() if p.is_dir()):
+    for ns_dir in sorted(p for p in data.iterdir() if p.is_dir()):
         for top in sorted(p for p in ns_dir.iterdir() if p.is_dir()):
             rel = f"{ns_dir.name}/{top.name}"
             if rel in covered or top.name == "datapacks" or top.name in ADAPTER_DIRS:
@@ -176,7 +177,7 @@ def skip_inert_registries(profile: Profile, pack_dir: Path, store: FactStore) ->
             for path in sorted(p for p in top.rglob("*") if p.is_file()):
                 record(
                     store,
-                    path.relative_to(pack_dir).as_posix(),
+                    f"data/{rel}/{path.relative_to(top).as_posix()}",
                     "inert_registry",
                     status=LedgerStatus.CLASSIFIED_SKIP,
                     rule="该注册表不参与获取路径推理",
@@ -184,7 +185,7 @@ def skip_inert_registries(profile: Profile, pack_dir: Path, store: FactStore) ->
                 )
 
     for marker in BUILD_MARKERS:
-        path = data_root / marker
+        path = data / marker
         if path.exists():
             record(
                 store,

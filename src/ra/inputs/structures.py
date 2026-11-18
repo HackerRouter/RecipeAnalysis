@@ -134,6 +134,26 @@ def _extract(inner: Path, rel_dir: str, dest_root: Path) -> int:
     return count
 
 
+def _overlay_templates(data_root: Path, input_root: Path) -> tuple[int, tuple[str, ...]]:
+    """把生效数据根里的模板 `.nbt` 并进转换输入，同名即覆盖 jar 那份。
+
+    数据包的模板目录名可能与 jar 不同（`structure/` 与 `structures/` 两版各一个），
+    异名目录也照样送进转换——转换器按输入相对路径产出，能否被读取由调用方判定，
+    不能在这里静默丢弃。返回 `(并进数量, 涉及的 data/<ns>/<目录>)`。
+    """
+    count = 0
+    dirs: set[str] = set()
+    base = data_root.parent
+    for path in sorted(p for p in data_root.rglob(f"*{TEMPLATE_SUFFIX}") if p.is_file()):
+        rel = path.relative_to(base)
+        target = input_root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+        count += 1
+        dirs.add("/".join(rel.parts[:3]))
+    return count, tuple(sorted(dirs))
+
+
 def _convert(
     java,
     classpath_entries: list[str],
@@ -186,8 +206,14 @@ def ensure_structures(
     cache_root: Path,
     *,
     force: bool = False,
+    overlay=None,
 ) -> StructuresSource:
-    """确保内层 jar 的模板已转成 `.snbt`；命中缓存时直接复用。"""
+    """确保内层 jar 的模板已转成 `.snbt`；命中缓存时直接复用。
+
+    `overlay` 是 `inputs.datapacks.ensure_datapack_merge` 的结果。生效时把合并后
+    数据根里的模板 `.nbt` 并进同一批转换，同名即覆盖 jar 那份，因此数据包改过的
+    结构模板能进入事实。缓存判据随之加上数据包侧的失效键。
+    """
     jar_path = pack_jar(manifest.pack_dir)
     info = inspect_jar(jar_path)
     if not info.is_bundler:
@@ -211,8 +237,14 @@ def ensure_structures(
 
     inner = _inner_jar(work, info)
     recorded = _load_marker(marker)
+    overlay_key = getattr(overlay, "key", "") if overlay is not None and getattr(overlay, "active", False) else ""
     rel_dir = recorded.get("dir")
-    if not force and isinstance(rel_dir, str) and recorded.get("jar_sha256") == jar_digest:
+    if (
+        not force
+        and isinstance(rel_dir, str)
+        and recorded.get("jar_sha256") == jar_digest
+        and recorded.get("packs") == overlay_key
+    ):
         produced = root / "data" / Path(rel_dir)
         files = sum(1 for p in produced.rglob(f"*{OUTPUT_SUFFIX}") if p.is_file()) if produced.is_dir() else 0
         if files and files == recorded.get("files"):
@@ -255,15 +287,21 @@ def ensure_structures(
             f"模板提取数量与 jar 清单不一致：解出 {extracted}，清单 {expected}（{rel_dir}）"
         )
 
+    overlaid = 0
+    overlay_dirs: tuple[str, ...] = ()
+    if overlay_key:
+        overlaid, overlay_dirs = _overlay_templates(Path(overlay.data_root), input_root)
+
     print(
-        f"转换模板（Java {java.version}）：{extracted} 个 .nbt → .snbt，目录 data/{rel_dir}",
+        f"转换模板（Java {java.version}）：{extracted} 个 .nbt → .snbt，目录 data/{rel_dir}"
+        + (f"，另有数据包模板 {overlaid} 个" if overlaid else ""),
         file=sys.stderr,
     )
     _convert(java, classpath(info, work), input_root, out_root, cache_dir, log_path)
 
     produced = out_root / "data" / Path(rel_dir)
     files = sum(1 for p in produced.rglob(f"*{OUTPUT_SUFFIX}") if p.is_file()) if produced.is_dir() else 0
-    if files != extracted:
+    if files < extracted:
         raise InputError(
             f"模板转换不完整：输入 {extracted} 个 .nbt，产出 {files} 个 .snbt，日志：{log_path}\n"
             f"{_tail(log_path)}"
@@ -277,7 +315,19 @@ def ensure_structures(
     shutil.rmtree(input_root, ignore_errors=True)
     shutil.rmtree(out_root, ignore_errors=True)
 
-    notes = ("模板来自服务端 jar 内层的二进制模板，已用 --dev 升级并转成 SNBT",)
+    notes = ["模板来自服务端 jar 内层的二进制模板，已用 --dev 升级并转成 SNBT"]
+    if overlaid:
+        notes.append(
+            f"数据包带入 {overlaid} 个模板，与 jar 同名者覆盖；涉及目录：{', '.join(overlay_dirs)}"
+        )
+        outside = sorted(
+            item for item in overlay_dirs if item != f"data/{rel_dir}" and not item.startswith(f"data/{rel_dir}/")
+        )
+        if outside:
+            notes.append(
+                f"数据包模板落在 jar 模板目录之外（{', '.join(outside)}），"
+                "已转换但当前探测不会把它们当结构事实来源"
+            )
     write_json(
         marker,
         {
@@ -287,7 +337,9 @@ def ensure_structures(
             "files": files,
             "args": list(DEV_ARGS),
             "source": "jar",
-            "notes": list(notes),
+            "packs": overlay_key,
+            "overlaid": overlaid,
+            "notes": notes,
         },
     )
     return StructuresSource(
@@ -298,5 +350,5 @@ def ensure_structures(
         java=java.as_json(),
         cache_hit=False,
         log_path=log_path,
-        notes=notes,
+        notes=tuple(notes),
     )

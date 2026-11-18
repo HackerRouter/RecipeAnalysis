@@ -26,8 +26,7 @@ from ..mcshared.trades import level as _level
 from ..mcshared.trades import parse_item_stack, segment as _segment, trade_id as _trade_id
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
-from .base import Adapter, iter_json_files, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 
 FAMILY = "trade"
 
@@ -102,7 +101,7 @@ class TradeAdapter(Adapter):
             if claim is None:
                 continue
             ns, _, rel = claim.path.partition("/")
-            root = pack_data(pack_dir) / ns / rel
+            root = data_root(profile, pack_dir) / ns / rel
             if not root.is_dir():
                 record(
                     store,
@@ -115,12 +114,12 @@ class TradeAdapter(Adapter):
             for path in iter_json_files(root):
                 if layer == LAYER_OFFER:
                     ident = self._offer(
-                        path, pack_dir, ns, store, professions, shared_groups, owners
+                        path, data_root(profile, pack_dir).parent, ns, store, professions, shared_groups, owners
                     )
                     if ident is not None:
                         reachable.add(ident)
                 else:
-                    self._set(path, pack_dir, ns, store)
+                    self._set(path, data_root(profile, pack_dir).parent, ns, store)
 
         # 没被任何 trade_set 引用的条目要留痕：可能是流浪商人那种分组命名不同的
         # 正常情况，也可能是数据包结构变了导致整批交易成了孤儿。
@@ -146,7 +145,7 @@ class TradeAdapter(Adapter):
         if claim is None:
             return set()
         ns, _, rel = claim.path.partition("/")
-        root = pack_data(pack_dir) / ns / rel
+        root = data_root(profile, pack_dir) / ns / rel
         if not root.is_dir():
             return set()
         return {path.name for path in root.iterdir() if path.is_dir()}
@@ -163,7 +162,7 @@ class TradeAdapter(Adapter):
         if claim is None:
             return {}
         ns, _, rel = claim.path.partition("/")
-        root = pack_data(pack_dir) / ns / rel
+        root = data_root(profile, pack_dir) / ns / rel
         if not root.is_dir():
             return {}
 
@@ -225,7 +224,7 @@ class TradeAdapter(Adapter):
         if claim is None:
             return {}
         ns, _, rel = claim.path.partition("/")
-        root = pack_data(pack_dir) / ns / rel
+        root = data_root(profile, pack_dir) / ns / rel
         if not root.is_dir():
             return {}
 

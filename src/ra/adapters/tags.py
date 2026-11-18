@@ -14,8 +14,7 @@ from pathlib import Path
 
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
 from ..probe.profile import Profile
-from .base import Adapter, iter_json_files, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 
 FAMILY = "tags"
 
@@ -55,10 +54,10 @@ class TagAdapter(Adapter):
     id = "src/tags"
 
     def run(self, profile: Profile, pack_dir: Path, store: FactStore) -> None:
-        data_root = pack_data(pack_dir)
+        data = data_root(profile, pack_dir)
         for registry, tag_dir in sorted(profile.tag_dirs.items()):
             ns, _, rel = tag_dir.path.partition("/")
-            root = data_root / ns / rel
+            root = data / ns / rel
             if not root.is_dir():
                 record(
                     store,
@@ -69,7 +68,7 @@ class TagAdapter(Adapter):
                 )
                 continue
             for path in iter_json_files(root):
-                self._one(path, root, pack_dir, registry, store)
+                self._one(path, root, data.parent, registry, store)
 
     def _one(
         self, path: Path, tag_root: Path, pack_dir: Path, registry: str, store: FactStore

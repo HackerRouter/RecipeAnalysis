@@ -83,6 +83,12 @@ class Profile:
     dirs: dict[str, DirClaim] = field(default_factory=dict)
     tag_dirs: dict[str, TagDir] = field(default_factory=dict)
 
+    # 生效数据根：有外来数据包时是覆盖合并结果的 `data/`，否则是原版派生目录。
+    # 下游适配器一律读它，不自己拼 `pack_data(pack_dir)`——两处拼法早晚会分叉。
+    data_root: str | None = None
+    # 数据包覆盖的 provenance（`inputs/datapacks.ensure_datapack_merge`）。
+    datapack_merge: dict = field(default_factory=dict)
+
     # 结构模板：第一手是服务端 jar 内层的二进制模板（转成 SNBT）。
     # `template_dir_src` 记录反编译源码树侧的探测结果，只作交叉校验；两份目录名可能不同。
     template_dir: str | None = None
@@ -135,6 +141,8 @@ class Profile:
             },
             "registries": self.registry_counts,
             "namespaces": self.namespaces,
+            "data_root": self.data_root,
+            "datapack_merge": self.datapack_merge,
             "dirs": {k: v.as_json() for k, v in sorted(self.dirs.items())},
             "tag_dirs": {k: v.as_json() for k, v in sorted(self.tag_dirs.items())},
             "templates": {

@@ -38,6 +38,7 @@ KINDS = (
     "code_link",
     "pack_delta",
     "profile",
+    "mining",
 )
 
 

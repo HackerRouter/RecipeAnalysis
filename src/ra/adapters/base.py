@@ -13,6 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..facts import Fact, FactStore, LedgerRow, LedgerStatus
+from ..paths import pack_data
 from ..probe.profile import Profile
 
 ADAPTER_SCHEMA_VERSION = 1
@@ -68,3 +69,17 @@ def iter_json_files(root: Path) -> Iterator[Path]:
 
 def rel_posix(path: Path, base: Path) -> str:
     return path.relative_to(base).as_posix()
+
+
+def data_root(profile: Profile, pack_dir: Path) -> Path:
+    """生效数据根。
+
+    有外来数据包时是覆盖合并结果的 `data/`，否则是原版派生目录。适配器一律读它，
+    不自己拼 `pack_data(pack_dir)`——两处拼法分叉时，覆盖会悄悄失效。
+
+    台账的相对基准取它的**父目录**：两种情形下文件名都形如 `data/<ns>/...`，
+    与原版目录的产物逐字一致。
+    """
+    if profile.data_root:
+        return Path(profile.data_root)
+    return pack_data(pack_dir)

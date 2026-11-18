@@ -9,7 +9,7 @@
 
 | 模块 | 输入 | 输出 | 不知道什么 |
 |---|---|---|---|
-| `inputs/` | 用户放的 jar 与反编译源码 | 装配好的输入包、datagen 产物 | 游戏机制 |
+| `inputs/` | 用户放的 jar、反编译源码与可选数据包 | 装配好的输入包、datagen 产物、覆盖合并结果 | 游戏机制 |
 | `probe/` | 输入包 | `Profile`：方言、目录归属、能力 | 任何具体内容 |
 | `facts/` | —— | 事实与台账的数据结构与 schema | 语义 |
 | `adapters/` | 输入包 | 事实 + 台账行 | 可达性、知识以外的游戏规则 |
@@ -34,10 +34,13 @@
 |---|---|---|
 | 加一个版本 | 放输入包到 `inputs/<label>/`，`ra inputs init` | `pytest --label <label>`；`ingest/test_probe_integration.py` 的 `EXPECTED` 要登记该版本 |
 | 加一种数据包来源 | `probe/` 认目录 + `adapters/` 加解析器 | 台账里每个新文件都有行；`facts-summary.json` 计数对得上 |
+| 改数据包覆盖语义（覆盖顺序、标签合并、filter） | `inputs/datapacks.py` | `tests/unit/test_datapack_overlay.py`；每项行为都有对应用例 |
+| 新增一步输入装配（新派生品、新第三方输入） | `inputs/` 新模块 + `cli._prepare` + `paths.py` 访问器；生效数据根变更要同步 `adapters/base.data_root` | `ra inputs init` 的输出能看出该步结果；台账无未交代文件 |
 | 加一种知识 | `knowledge/maps/<category>/<名>.json`，在 `ir/knowledge.py` 读取 | 条目带 `basis`；`knowledge/README.md` 记字段 |
 | 加一条机制桥接 | `ir/bridges/` 对应的模块 | 规则数与新增条目数对得上 |
 | 加一个来源族 | `ir/families/` 新模块 + `ir/compile.py` 里装配 | `coverage.json` 的 `rule_counts` 出现该族 |
 | 加一条代码惯用法 | `adapters/source/idioms/<名>.py` 导出 `exported()`，在 `adapters/source/__init__.py` 的 `default_idioms()` 注册 | 该 idiom 的 `candidate` / `extracted` 计数；锚点必须是**调用形态**而非类名 |
+| 采集代码侧的静态数值（不进 IR） | `adapters/source/idioms/<名>.py` 用 `add_fact` 产各自的事实种类；`report/<主题>_tables.py` 出表 | 值与注册表全集逐条对账；对不上的多出来的剔除、缺的记失败 |
 | 加一个黄金样本 | `tests/golden.py` 加一条 `Sample` | 覆盖类别要落在 `tests/ir/test_golden.py` 的 `REQUIRED` 清单内 |
 | 改路径图的显示（颜色、形状、类别名） | `report/paths/style.py` | `tests/unit/test_paths_graph.py`；类别键必须仍由 `family` / `meta` 派生 |
 | 改路径图的建图或预算 | `report/paths/graph.py` | 同上；剪枝必须有标注，不得静默丢弃 |

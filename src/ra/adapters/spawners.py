@@ -44,8 +44,7 @@ from pathlib import Path
 from ..facts import Fact, FactStore, LedgerStatus, Prov, Status
 from ..probe.profile import Profile
 from ..util.jsonio import read_json
-from .base import Adapter, iter_json_files, record, rel_posix
-from ..paths import pack_data
+from .base import Adapter, data_root, iter_json_files, record, rel_posix
 
 FAMILY = "spawner_config"
 DIRNAME = "trial_spawner"
@@ -55,14 +54,14 @@ class SpawnerConfigAdapter(Adapter):
     id = "src/spawner_config"
 
     def run(self, profile: Profile, pack_dir: Path, store: FactStore) -> None:
-        data_root = pack_data(pack_dir)
+        data = data_root(profile, pack_dir)
         found = 0
-        for namespace_dir in sorted(p for p in data_root.iterdir() if p.is_dir()):
+        for namespace_dir in sorted(p for p in data.iterdir() if p.is_dir()):
             root = namespace_dir / DIRNAME
             if not root.is_dir():
                 continue
             for path in iter_json_files(root):
-                self._one(path, pack_dir, namespace_dir.name, root, store)
+                self._one(path, data.parent, namespace_dir.name, root, store)
                 found += 1
 
         if found == 0:

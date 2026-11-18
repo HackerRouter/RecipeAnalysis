@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .adapters import (
     audit_tree,
+    record,
     require_complete,
     run_adapters,
     skip_excluded_dirs,
@@ -20,9 +21,10 @@ from .adapters import (
     sweep_assets,
 )
 from .errors import RaError
-from .facts import FactStore
+from .facts import FactStore, LedgerStatus
 from .inputs import (
     ensure_data,
+    ensure_datapack_merge,
     ensure_reports,
     ensure_source,
     ensure_structures,
@@ -30,6 +32,8 @@ from .inputs import (
     load_manifest,
     reconcile,
 )
+from .inputs.datapacks import ACTION_FILTERED, ACTION_MERGED, ACTION_METADATA, ACTION_NON_DATA
+from .inputs.datapacks import ACTION_INACTIVE_OVERLAY, ACTION_OVERRIDDEN, base_pack_version
 from .inputs.manifest import check_pack_layout
 from .ir.knowledge import load_exceptions
 from .paths import (
@@ -38,6 +42,7 @@ from .paths import (
     inputs_root,
     manifest_file,
     output_dir,
+    pack_data,
     pack_jar,
     repo_root,
 )
@@ -124,18 +129,19 @@ def cmd_inputs_init(args: argparse.Namespace) -> int:
     )
 
     if not args.no_reports:
-        reports, structures, data = _prepare(manifest, root, force=args.force)
+        reports, structures, data, merge = _prepare(manifest, root, force=args.force)
         print(f"reports {'复用缓存' if reports.cache_hit else '已生成'}：{reports.root}", file=sys.stderr)
         for note in reports.notes:
             print(f"  note: {note}", file=sys.stderr)
         print(
-            f"结构模板 {'复用缓存' if structures.cache_hit else '已生成'}："
-            f"{structures.files} 个（{structures.rel_dir}）→ {structures.root}",
-            file=sys.stderr,
-        )
-        print(
             f"数据包 {'复用缓存' if data.cache_hit else '已由 jar 派生'}："
             f"{data.files} 个文件 → {data.root}",
+            file=sys.stderr,
+        )
+        _print_merge(merge)
+        print(
+            f"结构模板 {'复用缓存' if structures.cache_hit else '已生成'}："
+            f"{structures.files} 个（{structures.rel_dir}）→ {structures.root}",
             file=sys.stderr,
         )
 
@@ -143,33 +149,90 @@ def cmd_inputs_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def _ingest_store(profile, pack_dir: Path, label: str):
+def _ingest_store(profile, pack_dir: Path, label: str, merge=None):
     """跑全部适配器，返回 `(store, unaccounted)`。
 
     `ingest` 与 `run` 共用这一段：`run` 需要同一份事实，
     重跑一遍适配器（约 20 秒）比读回 JSONL 再反序列化简单可靠。
     """
     store = FactStore(label=label)
+    record_datapack_files(merge, pack_dir, store)
     skip_excluded_dirs(profile, pack_dir, store)
     skip_inert_registries(profile, pack_dir, store)
     asset_counts = sweep_assets(pack_dir, store)
     run_adapters(profile, pack_dir, store)
     store.extra["asset_counts"] = asset_counts
+    if merge is not None:
+        store.extra["datapack_merge"] = merge.as_json()
     unaccounted = audit_tree(profile, pack_dir, store)
     return store, unaccounted
 
 
-def _prepare(manifest, root: Path, *, force: bool = False):
-    """确保 reports、结构模板、数据包都已就位。
+def record_datapack_files(merge, pack_dir: Path, store: FactStore) -> None:
+    """外来数据包是第一手输入，每个文件都要有交代（红线 3）。
 
-    三者都是派生品：reports 与结构模板由 jar 跑 datagen 得到，数据包从内层 jar 解出。
-    顺序不能换：先解包 bundler，后面两步才有东西可读。
+    合并后的同名资源只留最终生效那份，被覆盖/被屏蔽的副本不是「不存在」：
+    它们的去向逐条记在这里，否则「数据包里的配方为什么没生效」无从查起。
+    """
+    if merge is None or not merge.active:
+        return
+    rules = {
+        ACTION_MERGED: "已并入覆盖结果，事实在 data/ 路径上记",
+        ACTION_OVERRIDDEN: "被更高优先级的数据包或 overlay 覆盖",
+        ACTION_METADATA: "数据包元数据，不进入合并结果",
+        ACTION_FILTERED: "被更高优先级数据包的 filter 屏蔽",
+        ACTION_NON_DATA: "非 data/ 内容，不参与数据侧合并",
+        ACTION_INACTIVE_OVERLAY: "所在 overlay 不适用于当前格式版本",
+    }
+    for item in merge.dispositions:
+        record(
+            store,
+            f"datapacks/{item.pack}/{item.file}",
+            "datapack",
+            status=LedgerStatus.CLASSIFIED_SKIP,
+            rule=rules.get(item.action, item.action),
+            note=f"数据包 {item.pack}",
+        )
+
+
+def _print_merge(merge) -> None:
+    if merge is None or not merge.active:
+        print("数据包覆盖   未启用（无 datapacks/ 输入）", file=sys.stderr)
+        return
+    names = ", ".join(pack.name for pack in merge.packs)
+    print(
+        f"数据包覆盖   {len(merge.packs)} 个包（{names}）→ {merge.root}",
+        file=sys.stderr,
+    )
+    print(
+        f"             覆盖 {merge.overrides} 处、标签合并 {merge.tag_merges} 处、"
+        f"filter 屏蔽 {merge.filtered} 处、结果 {merge.files} 个文件",
+        file=sys.stderr,
+    )
+    for note in merge.notes:
+        print(f"  note: {note}", file=sys.stderr)
+
+
+def _prepare(manifest, root: Path, *, force: bool = False):
+    """确保 reports、数据包、覆盖合并、结构模板都已就位。
+
+    四者都是派生品：reports 由 jar 跑 datagen 得到，数据包从内层 jar 解出，
+    覆盖合并由两者加 `datapacks/` 算出，模板从 jar 内层转出（含数据包带入的那份）。
+    顺序不能换：先解 bundler（reports 与数据包都要它），再合并，最后才能确定
+    模板要转哪些 `.nbt`。
     """
     cache = cache_root(root)
     reports = ensure_reports(manifest, cache, force=force)
-    structures = ensure_structures(manifest, cache, force=force)
     data = ensure_data(manifest, cache, force=force)
-    return reports, structures, data
+    merge = ensure_datapack_merge(
+        manifest,
+        pack_data(manifest.pack_dir),
+        f"{data.jar_sha256}|{data.files}",
+        base_version=base_pack_version(manifest.pack_dir),
+        force=force,
+    )
+    structures = ensure_structures(manifest, cache, force=force, overlay=merge)
+    return reports, structures, data, merge
 
 
 def cmd_ingest(args: argparse.Namespace) -> int:
@@ -178,14 +241,14 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     ensure_source(manifest)
     check_pack_layout(pack_dir)
 
-    reports, structures, _ = _prepare(manifest, root, force=args.force_datagen)
+    reports, structures, _, merge = _prepare(manifest, root, force=args.force_datagen)
     registries = Registries.load(reports.root / "registries.json")
-    profile = build_profile(pack_dir, manifest, reports, registries, structures)
+    profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
     out_dir = output_dir(root, manifest.label)
     write_json(out_dir / "profile.json", _profile_payload(profile, reports, manifest))
 
-    store, unaccounted = _ingest_store(profile, pack_dir, manifest.label)
+    store, unaccounted = _ingest_store(profile, pack_dir, manifest.label, merge)
     store.extra["ledger_drift"] = compare_ledger(out_dir, store)
     paths = store.write(out_dir)
 
@@ -263,9 +326,9 @@ def cmd_probe(args: argparse.Namespace) -> int:
     ensure_source(manifest)
     check_pack_layout(pack_dir)
 
-    reports, structures, _ = _prepare(manifest, root, force=args.force_datagen)
+    reports, structures, _, merge = _prepare(manifest, root, force=args.force_datagen)
     registries = Registries.load(reports.root / "registries.json")
-    profile = build_profile(pack_dir, manifest, reports, registries, structures)
+    profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
     out_path = output_dir(root, manifest.label) / "profile.json"
     write_json(out_path, _profile_payload(profile, reports, manifest))
@@ -281,6 +344,7 @@ def cmd_probe(args: argparse.Namespace) -> int:
     print(f"reports          cache_hit={reports.cache_hit} java={reports.java['version']}")
     print(f"components       {profile.components_layout}")
     print(f"datapack.json    {profile.datapack_capability}")
+    _print_merge(merge)
     print(f"namespaces       {', '.join(profile.namespaces)}")
     for registry, claim in sorted(profile.dirs.items()):
         print(f"dir {registry:<12} {claim.path:<26} {claim.files:>5} files  {claim.coverage:.0%}")
@@ -332,11 +396,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     ensure_source(manifest)
     check_pack_layout(pack_dir)
 
-    reports, structures, _ = _prepare(manifest, root, force=args.force_datagen)
+    reports, structures, _, merge = _prepare(manifest, root, force=args.force_datagen)
     registries = Registries.load(reports.root / "registries.json")
-    profile = build_profile(pack_dir, manifest, reports, registries, structures)
+    profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
-    store, unaccounted = _ingest_store(profile, pack_dir, manifest.label)
+    store, unaccounted = _ingest_store(profile, pack_dir, manifest.label, merge)
 
     out_dir = output_dir(root, manifest.label)
     # `run` 也落事实：报告里的每个判定都要能用 `output/<label>/facts/` 复盘，
@@ -599,12 +663,20 @@ def _read_json_optional(path: Path) -> dict | None:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
-    """把事实导成可查表：结构布局四张 + 刷怪表一张。
+    """把事实导成可查表：结构布局四张 + 刷怪表一张 + 挖掘三张 + 公式一份。
 
     只读 `output/<label>/facts/`：这些表是事实的下游视图，不重跑探测与适配器。
-    结构与模板之间的拼装关系、容器与方块白名单、刷怪权重都在事实里，
-    这一层不读 `inputs/`。
+    结构与模板之间的拼装关系、容器与方块白名单、刷怪权重、方块硬度与工具速度
+    都在事实里，这一层不读 `inputs/`。挖掘进度公式（每 tick
+    `玩家速度 / 硬度 / (正确工具 ? 30 : 100)`，累计 >= 1 破坏）落成
+    `mining_formula.json`。
     """
+    from .report.mining_tables import (
+        FORMULA_FILE,
+        TABLE_NAMES as MINING_TABLES,
+        build_mining_tables,
+        mining_formula,
+    )
     from .report.spawn_tables import TABLE_SPAWNS, build_spawn_tables
     from .report.structure_tables import TABLE_NAMES, build_structure_tables
 
@@ -621,10 +693,16 @@ def cmd_export(args: argparse.Namespace) -> int:
     store = FactStore.read(facts_dir, label=manifest.label)
     tables = build_structure_tables(store)
     tables.update(build_spawn_tables(store))
+    tables.update(build_mining_tables(store))
     counts: dict[str, int] = {}
-    for name in (*TABLE_NAMES, TABLE_SPAWNS):
+    for name in (*TABLE_NAMES, TABLE_SPAWNS, *MINING_TABLES):
         counts[name] = write_jsonl(out_dir / f"{name}.jsonl", tables[name])
         print(f"{name:<20} {counts[name]:>7} 行 -> {out_dir / f'{name}.jsonl'}")
+
+    formula = mining_formula(store)
+    if formula is not None:
+        write_json(out_dir / FORMULA_FILE, formula)
+        print(f"{FORMULA_FILE:<20} {'':>7}   -> {out_dir / FORMULA_FILE}")
 
     write_json(
         out_dir / "exports.json",
@@ -748,7 +826,7 @@ def build_parser() -> argparse.ArgumentParser:
     guide.add_argument("--stdout", action="store_true", help="同时打印到终端")
     guide.set_defaults(func=cmd_guide)
 
-    export = sub.add_parser("export", help="把事实导成可查表（结构布局、刷怪权重）")
+    export = sub.add_parser("export", help="把事实导成可查表（结构布局、刷怪权重、挖掘数值与进度公式）")
     export.add_argument("--label", required=True)
     export.set_defaults(func=cmd_export)
 

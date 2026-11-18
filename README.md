@@ -58,6 +58,18 @@ datagen 的类要求特定 Java 大版本，版本不符时抛出 `UnsupportedCl
   - 独立整棵：放在 `inputs/<label>/java/`，根下即 `net/minecraft/...`。
   - 反编译源码仓：在 `inputs/manifest.toml` 写仓库位置与版本提交号，由 `ra inputs init` 导出到 `inputs/<label>/java/`。
 
+还可选地提供**数据包**，分析游戏里实际生效的配置而不是官方原版数据。放在 `inputs/<label>/datapacks/`，每项是含 `pack.mcmeta` 的目录或 `.zip`，并在版本段里按加载顺序列出：
+
+```toml
+["26.3"]
+content_commit = "c1fd2a862"
+datapacks = ["base_tweaks", "balance.zip"]     # 低 → 高，后加载者覆盖前者
+```
+
+多版本兼容包（`pack.mcmeta` 带 `overlays`）不需要手工挑目录：按包声明的格式范围自动筛出适用于当前版本的那几层，不适用的层逐文件登记为未生效。
+
+合并结果落在 `inputs/<label>/datapack-merged/`，其 `data/` 即生效数据根，可供其他采集项目直接读取；`merge-log.jsonl` 记录每处覆盖与标签合并。不提供数据包时不生成该目录，分析对象仍是原版数据。语义与边界见 [`docs/adr/0014-datapack-overlay.md`](docs/adr/0014-datapack-overlay.md)。
+
 两项就位后执行：
 
 ```bash
@@ -92,7 +104,7 @@ ra ingest       --label <label>                                      # 事实化
 ra run          --label <label>                                      # 事实 → 规则 → 不动点 → 可达性报告
 ra why          --label <label> <节点>                               # 追踪单个物品的获取途径或归因
 ra graph        --label <label>                                      # 把全量关系图落成内部表示（可视化用）
-ra export       --label <label>                                      # 导出结构布局与刷怪权重的可查表
+ra export       --label <label>                                      # 导出结构布局、刷怪与挖掘数值的可查表
 ra guide        --label <label>                                      # 把探测与产物结论写成该版本的适配指南
 ```
 
@@ -139,7 +151,7 @@ ra-paths --graph output/26.3/graph.json minecraft:emerald
 
 | 文件 | 内容 |
 |---|---|
-| `profile.json` | 探测结果、jar 摘要、reports 摘要、Java 版本 |
+| `profile.json` | 探测结果、jar 摘要、reports 摘要、Java 版本、生效数据根与数据包覆盖摘要 |
 | `facts/<种类>.jsonl` | 事实，每条带 `prov` 与 `status` |
 | `ledger.jsonl` | 每个输入文件一行：`parsed` / `partial` / `classified_skip` / `failed` |
 | `facts-summary.json` | 计数、状态分布、按族覆盖率、跳过规则统计 |
@@ -149,7 +161,11 @@ ra-paths --graph output/26.3/graph.json minecraft:emerald
 | `template_blocks.jsonl` | 模板 → 方块 ID + 状态串 + 出现次数（`ra export` 生成） |
 | `structure_containers.jsonl` | 结构 → 生成代码里挂的战利品表：容器形态 + 表 + 调用点数（`ra export` 生成） |
 | `spawn_tables.jsonl` | 刷怪表：群系 / 结构 / 试炼刷怪笼 / 模板刷怪笼 / 袭击波次 → 类别 + 实体 + 权重 + 数量 + 波次 + 前提（`ra export` 生成） |
-| `exports.json` | 五张表的行数与来源事实计数（`ra export` 生成） |
+| `mining_blocks.jsonl` | 方块 → 硬度、爆炸抗性、是否要求正确工具（`ra export` 生成） |
+| `mining_tools.jsonl` | 工具 → 默认挖掘速度 + 有序规则（选择器、速度、是否正确工具）（`ra export` 生成） |
+| `mining_tool_materials.jsonl` | 工具材料 → 速度、耐久、附魔价值（`ra export` 生成） |
+| `mining_formula.json` | 挖掘进度公式：每 tick 进度 = 玩家速度 / 硬度 / (正确工具 ? 30 : 100)，累计 ≥ 1 破坏；另有 `-1` 哨兵与玩家侧修正项（`ra export` 生成） |
+| `exports.json` | 各表的行数与来源事实计数（`ra export` 生成） |
 | `graph.json` | 全量关系图的内部表示：规则 + 三值状态 + 种子（`ra graph` 生成） |
 | `paths_<label>_<物品>.{dot,svg,html}` | 单个物品的来源图（`ra-paths` 生成） |
 | `guide.md` | 该版本的适配指南：目录归属、形状、未归属项、族级不可用（`ra guide` 生成） |
