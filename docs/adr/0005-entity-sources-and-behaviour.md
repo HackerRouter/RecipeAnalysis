@@ -4,11 +4,11 @@
 
 ## 一、行为产出用声明式表，不写成 idiom
 
-`idioms/` 下的适配器都是「在反编译源码里认出一个固定代码形状」。行为产出没有共同形状：同样是「实体产出」，龙蛋走 `setBlockAndUpdate`、龙息走 `turnBottleIntoItem`、海龟蛋走 `setValue(TurtleEggBlock.EGGS, ...)`、玩家头走战利品表回调、青蛙卵走 `Activity` 的某一步。写一个 idiom 只能抓到其中一两种，抓漏时不报错。
+`idioms/` 下的适配器都是「在反编译源码里认出一个固定代码形状」。行为产出没有共同形状：同样是「实体产出」，龙蛋走 `setBlockAndUpdate`、龙息走 `turnBottleIntoItem`、蜜脾走 `dropHoneycomb`、青蛙卵走 `Activity` 的某一步。写一个 idiom 只能抓到其中一两种，抓漏时不报错。
 
 更关键的是**判据口径**：idiom 的产出是「反编译源码取证」，证明的是「阅读反编译源码看到这条路径」。这些项的语义可以直接从游戏行为断言，不需要读懂实现——塞进 idiom 等于把「已知事实」伪装成「反编译源码证据」，混淆两类可信度。
 
-所以用 `knowledge/maps/mechanism/entity_behaviour.json`，字段 `produces` / `actor` / `inputs` / `basis` / `evidence`，生成的规则是 `bridge:behaviour:{name}:{index}`，`kind="yield"`，body 为 `[actor, *inputs]`。
+所以用 `knowledge/maps/mechanism/entity_behaviour.json`，字段 `produces` / `form` / `actor` / `inputs` / `basis` / `evidence`，生成的规则是 `bridge:behaviour:{name}:{index}`，body 为 `[actor, *inputs]`，`kind` 由 `form` 定（见下）。
 
 `actor` 可以是任何排序的节点，行为主体不止实体：
 
@@ -20,6 +20,25 @@
 | 世界 | 树生成时挂蜂巢 |
 
 `assume:` 是为这类条目新增的前缀，语义等价于自由变量。它让「玩家做了什么」有地方落，而不必伪造一个 `entity:player`——那会污染实体注册表统计。
+
+### 产出有两种形态
+
+`form` 分两种，缺省 `yield`：
+
+| form | 语义 | kind / 族 |
+|---|---|---|
+| `yield` | 行为主体 + 消耗品 → 产出一件新东西 | `yield` / `bridge/entity_behaviour` |
+| `transmutes` | 手里那件东西换形态成另一件，没有合成表 | `transmutes` / `bridge/item_conversion` |
+
+`filled_map` 与 `written_book` 属后者：空地图探索后被填充、笔与书签名后成书。它们的合成表是 `map` 与 `writable_book`（配方事实里已有），成品这两条没有任何配方。写 `yield` 会让下游按族名归成「某主体掉了这件东西」，与战利品混成一类，给出的第二个判断就是错的。`transmutes` 的 `inputs` 必须非空——没有输入就没有被换形的那件东西。
+
+`player_head` 从表里删掉：它的 `actor` 只能是 `assume:player`，而机制真正要的是「玩家被闪电苦力怕炸死」那一步。`assume:player` 恒真，写出来的规则等于宣称玩家头无条件可得；不写则落 `no_rule`，由报告指出机制未提取。宁可少一条恒真的假路径。
+
+| 做法 | 错在哪 |
+|---|---|
+| 把 `filled_map` 写成配方（纸 + 指南针 + 制图台） | 制图台不参与这件事，真实链路是「空地图 → 填充」；写成配方会凭空造出一道工序，并把 `map` 与 `filled_map` 的身份混成一个 |
+| 把两条留在 `yield` 只改 `basis` | 规则形状不变，下游仍按战利品归类；错误在族名上，改注释改不到 |
+| 给 `player_head` 补一个 `assume:charged_creeper` 让它成立 | 那一步不是分析前提而是机制本身（要玩家死一次），写成假设等于把它从待提取清单里藏起来 |
 
 ## 二、实体来源分四类
 
@@ -71,6 +90,6 @@
 
 ## 后果
 
-- 两个族：`bridge/entity_behaviour`（`yield`）与 `bridge/entity_source`（`spawns`）
+- 三个族：`bridge/entity_behaviour`（`yield`）、`bridge/item_conversion`（`transmutes`）与 `bridge/entity_source`（`spawns`）
 - 对账不通过的条目进 `entity_behaviour_problems` / `entity_source_problems`，键形如 `name:unknown_node`
 - 新增实体来源不会凭空造物品路径：物种自身的战利品表仍要存在，这里只补「实体从哪来」

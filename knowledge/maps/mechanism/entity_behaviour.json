@@ -24,6 +24,13 @@
     "  inputs    消耗品，会被用掉",
     "  basis     一行机制依据",
     "  evidence  代码位置或数据包路径，供复算",
+    "  form      产出形态，缺省 yield（见下）",
+    "",
+    "两种产出形态：",
+    "  yield       默认。行为主体 + 消耗品 → 产出一件新东西（龙息、蜜脾、铁砸降级）。",
+    "  transmutes  物品换形：手里那件东西变成另一件，没有合成表（空地图 → 已填充地图、",
+    "              笔与书 → 成书）。写 yield 会把它们当成「某主体掉了这件东西」，",
+    "              下游据族名归类时会错成战利品；transmutes 的前置必须非空。",
     "",
     "本表全版本共用，条目不带版本条件。编译期按该版本的注册表对账：",
     "actor / inputs 里有该版本不存在的节点则整条不产，produces 里不存在的只剔除那一条。",
@@ -68,14 +75,6 @@
     "inputs": [],
     "basis": "青蛙卵在水下被破坏时孵化出 2-5 只蝌蚪",
     "evidence": "FrogspawnBlock#spawnTadpoles 用 EntityTypes.TADPOLE.create(level, EntitySpawnReason.BREEDING)；MIN/MAX_TADPOLES_SPAWN = 2 / 5"
-  },
-
-  "player_head": {
-    "produces": ["item:minecraft:player_head"],
-    "actor": "assume:player",
-    "inputs": [],
-    "basis": "玩家被闪电苦力怕炸死时掉出自己的头；凶手是闪电苦力怕即必掉",
-    "evidence": "Creeper#killedEntity：isPowered() 时对实体调用 dropFromLootTable(..., BuiltInLootTables.CHARGED_CREEPER, ...)，玩家头是该表的产出"
   },
 
   "bee_nest": {
@@ -165,6 +164,7 @@
 
   "filled_map": {
     "produces": ["item:minecraft:filled_map"],
+    "form": "transmutes",
     "actor": "assume:player",
     "inputs": ["item:minecraft:map"],
     "basis": "空地图拿在手上探索后被填充成已填充的地图；制图师也卖成品图，但那条路走的是各自的地图物品",
@@ -173,6 +173,7 @@
 
   "written_book": {
     "produces": ["item:minecraft:written_book"],
+    "form": "transmutes",
     "actor": "assume:player",
     "inputs": ["item:minecraft:writable_book"],
     "basis": "笔与书签名后变成成书；签名后不能继续编辑",

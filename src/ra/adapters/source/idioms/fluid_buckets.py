@@ -12,8 +12,9 @@ Item POWDER_SNOW_BUCKET = Items.registerItem(BlockItemIds.POWDER_SNOW,
     (Item.Properties p) -> new SolidBucketItem(Blocks.POWDER_SNOW, SoundEvents.BUCKET_EMPTY_POWDER_SNOW, ...));
 ```
 
-两者都只有 `inputs`：**空桶** `item:minecraft:bucket`。
-没有 `via`——熔岩与细雪不是实体，绑一个 `entity:` 节点是错的。
+构造语义是「空桶 + 流体/方块 → 装好的桶」，所以 `via` 是那个被装进去的
+`block:` 节点：熔岩桶要 `block:minecraft:lava`，细雪桶要 `block:minecraft:powder_snow`。
+与 `mob_buckets` 的 `entity:` 同构：都是「容器里装了什么东西」。
 
 ## 为什么不是 `mob_buckets` 的一支
 
@@ -27,6 +28,9 @@ Item POWDER_SNOW_BUCKET = Items.registerItem(BlockItemIds.POWDER_SNOW,
 2. 构造调用是 `new BucketItem(Fluids.X, ...)` 或 `new SolidBucketItem(Blocks.Y, ...)`
 
 物品名取法沿用 `mob_buckets` 的三级优先：字面量 > `ItemIds.X` / `BlockItemIds.Y` 常量 > 字段名小写。
+内容节点按常量名小写取——`Fluids.WATER` → `block:minecraft:water`。
+常量名与注册名不一一对应的情况由 `verify_fluid_bucket_blocks` 对账，
+不在注册表里的把 `via` 揟下并留台账，不让桶静默变不可达。
 """
 
 from __future__ import annotations
@@ -113,6 +117,8 @@ class FluidBuckets(Idiom):
                         kind="yield",
                         # 空桶是消耗品：装完之后它不在手里了
                         inputs=(EMPTY_BUCKET,),
+                        # 被装进去的东西：流体常量与方块常量都按名字取下写
+                        via=(f"block:minecraft:{content.lower()}",),
                         meta={
                             "content_kind": kind,
                             "content": content,

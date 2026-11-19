@@ -9,6 +9,7 @@ idiom 从 Java 文本推出节点名（类名小写、字段名小写、文件�
 | 校验 | 推断来源 | 对照 |
 |---|---|---|
 | `verify_drop_refs` | 文件名 → 实体名 | `entity_type` 注册表 |
+| `verify_fluid_bucket_blocks` | 流体 / 方块常量名 → 方块名 | `block` 注册表 |
 | `verify_structure_refs` | 类名 → 结构名 | `worldgen` 事实 |
 | `verify_place_refs` | 字段名 → 物品 / 方块名 | `item` 与 `block` 注册表 |
 | `verify_table_refs` | 被借用方块名 → 战利品表 id | `loot_table` 事实 |
@@ -32,6 +33,7 @@ from .common import FAMILY, JAVA_PREFIX
 __all__ = [
     "known_structures",
     "verify_drop_refs",
+    "verify_fluid_bucket_blocks",
     "verify_mining_refs",
     "verify_place_refs",
     "verify_structure_refs",
@@ -247,6 +249,58 @@ def verify_structure_refs(store: FactStore) -> None:
                 "结构不在 worldgen 事实里",
                 "结构名由类名推断，与注册不符",
             )
+
+
+def verify_fluid_bucket_blocks(store: FactStore) -> None:
+    """流体桶里装的那个方块必须真实存在。
+
+    常量名按小写当方块名用（`Fluids.WATER` → `block:minecraft:water`），这是推断：
+    `Fluids` 里有不是方块的常量（`FLOWING_WATER`），`Blocks` 里也有名字对不上的可能。
+    名字不在 block 注册表时不能留在 body 里——不存在的节点恒假，桶会静默变成
+    不可达，报告只会说「不可获取」，看不出根因是常量名没对上。
+
+    处理方式与其它对账一致：能保留的部分保留（「空桶 → 满桶」这层事实仍可靠），
+    只揟下那个 `via` 并留台账，不整条剔除。
+    """
+    blocks = _registry_entries(store, "minecraft:block")
+    if not blocks:
+        return
+
+    dropped: dict[str, str] = {}
+    for fact in _drop_link(store, "fluid_buckets"):
+        link = fact.payload["link"]
+        via = link.get("via") or []
+        kept = [node_id for node_id in via if node_id.split(":", 1)[1] in blocks]
+        if len(kept) == len(via):
+            continue
+        for node_id in via:
+            if node_id not in kept:
+                dropped.setdefault(node_id, fact.prov.file)
+        payload = {
+            **fact.payload,
+            "link": {**link, "via": kept},
+            "meta": {
+                **fact.payload.get("meta", {}),
+                "via_dropped": [n for n in via if n not in kept],
+            },
+        }
+        store.drop(fact)
+        store.add(
+            Fact(kind="code_link", payload=payload, prov=fact.prov, status=fact.status)
+        )
+
+    for node_id, file in sorted(dropped.items()):
+        record(
+            store,
+            f"{JAVA_PREFIX}/<bad-node:{node_id}>",
+            FAMILY,
+            status=LedgerStatus.CLASSIFIED_SKIP,
+            rule="流体桶的内容名推不出方块",
+            note=(
+                f"不在 block 注册表：{node_id}（来源 {file}）；"
+                "只揟下该前置，桶仍由空桶成立"
+            ),
+        )
 
 
 def verify_place_refs(store: FactStore) -> None:

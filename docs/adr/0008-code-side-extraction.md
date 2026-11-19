@@ -38,7 +38,20 @@ item:minecraft:tadpole_bucket  ←yield←  entity:minecraft:tadpole (via)
 
 `via` 是被装的实体（要它存在，不消耗也不投入），`inputs` 是空桶（必须已有，且会被消耗）。两者混在一个列表里，求解器就分不清「要不要递归求可达」：蝌蚪不存在要去生成，空桶不存在路径就断。
 
-## 三、目录约定兜底，事实优先
+## 三、流体桶：`via` 是被装进去的方块
+
+`new BucketItem(Fluids.X, ...)` 与 `new SolidBucketItem(Blocks.Y, ...)` 同一句式，只是 `via` 换成方块：
+
+```
+item:minecraft:lava_bucket  ←yield←  block:minecraft:lava (via)
+                                    item:minecraft:bucket (inputs)
+```
+
+流体不是实体，绑 `entity:` 是错的；但也不能只留空桶：那样「桶里装的是什么」在下游就消失了，满桶与「空桶重复一遍」在规则上无法区分。
+
+常量名按小写当方块名用（`Fluids.WATER` → `block:minecraft:water`），这是推断。`Fluids` 里有不是方块的常量（`FLOWING_WATER`），所以 `verify_fluid_bucket_blocks` 按 `block` 注册表对账：名字对不上就揟下该 `via` 并留台账。不整条剔除，是因为「空桶 → 满桶」那层仍然成立；也不静默保留，因为不存在的节点恒假，桶会变成不可达而报告只会说「不可获取」。
+
+## 四、目录约定兜底，事实优先
 
 `table_providers.json` 按战利品表路径首段挂产出者。但同一首段下可以混着互不相干的机制——`gameplay/` 里有钓鱼（要钓竿）、猪灵以物易物（要金锭）、袭击后村民送礼、嗅探兽挖掘、若干生物被动产出。一条目录约定把它们全归到 `assume:player`，后果在路径图上直接可见：黑曜石的来源标签只写得出表名，既看不出要付金锭，也看不出这是一次交易。
 
@@ -62,7 +75,7 @@ LootTable lootTable = ...getLootTable(BuiltInLootTables.PIGLIN_BARTERING);
 
 图上不给这个表编中文专名。展示层只汉化**类别**，表名保持原名——表名有几千个且随版本增减，译名表必然不全。区分靠的是**结构**（它有一个金锭上游），不是靠名字。
 
-## 四、适配器约束
+## 五、适配器约束
 
 - **常量名转注册名要区分写法**：全大写常量直接小写，混合大小写才走驼峰拆分。判错会得到注册表里不存在的名字，且不报错
 - **构造参数可能夹带类型转换**：正则要吸收 `(...)` 强制转换段，否则一条也匹配不到
@@ -72,6 +85,6 @@ LootTable lootTable = ...getLootTable(BuiltInLootTables.PIGLIN_BARTERING);
 
 ## 后果
 
-- 新增 idiom `structure_gadgets`、`mob_buckets`、`piglin_barter`，产出均在 12 种链接种类内
+- 新增 idiom `structure_gadgets`、`mob_buckets`、`fluid_buckets`、`piglin_barter`，产出均在 12 种链接种类内
 - 结构名、实体名、物品名的对账入口集中在校验模块，避免各处重复推断
 - 目录约定仍是绝大多数表的唯一来源，事实只覆盖有代码常量的那些

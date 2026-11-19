@@ -192,6 +192,7 @@ BRIDGE_NAME = {
     "convention": "约定变换",
     "entity_source": "实体来源",
     "entity_behaviour": "实体行为",
+    "item_conversion": "物品转换",
     "harvest": "采集工具",
 }
 

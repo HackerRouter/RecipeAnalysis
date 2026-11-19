@@ -14,6 +14,10 @@
 `wants` 与 `gives` 的写法与配方产出同构（`{id, count, components}`），
 但**语义不同**：`wants` 是支付、`gives` 是所得。这一层区分留给 IR，
 事实层只如实记录两边各是什么。
+
+`wants` 一律是数组（与 `additional_wants` 同形）。附魔书这类报价在数据里写
+`count = 0`，真实价格由 `enchant_randomly` 的附魔等级决定；这类报价把
+`count` 写成 `{min, max}` 区间，并附 `price_model` 说明公式与等级来源。
 """
 
 from __future__ import annotations
@@ -62,6 +66,173 @@ def _expand_tag(
         else:
             out.append(value)
     return out
+
+
+# ---- 附魔书的对价 -------------------------------------------------------
+#
+# 图书管理员的附魔书报价在数据里写 `wants.count = 0`：真实价格由
+# `enchant_randomly` 的附魔等级决定，公式在代码里，两版一致：
+#
+#   EnchantRandomlyFunction#enchantItem
+#     ADDITIONAL_TRADE_COST = 2 + random.nextInt(5 + level * 10) + 3 * level
+#   VillagerTrade#getOffer
+#     把它加到 `wants.count` 上，再按 `TradeCost.toItemCost` 夹到
+#     `[0, 物品的 max_stack_size]`
+#   1.18.2 的 `EnchantBookForEmeralds#getOffer` 另有「宝藏附魔 ×2，再夹到 64」
+#
+# 等级区间从 `options` 指向的附魔标签展开，`max_level` 读附魔定义；
+# 是否翻倍看这些附魔与 `#minecraft:double_trade_price` 的交集。
+
+ENCHANT_RANDOMLY = frozenset({"enchant_randomly", "minecraft:enchant_randomly"})
+DOUBLE_PRICE_TAG = "minecraft:double_trade_price"
+DEFAULT_STACK = 64
+
+
+def _enchant_tag_members(store: FactStore, tag_id: str, depth: int = 0) -> set[str]:
+    """附魔标签的成员（递归展开 `nested`）。标签没有事实时返回空集。"""
+    if depth > MAX_TAG_DEPTH:
+        return set()
+    for fact in store.of_kind("tag"):
+        payload = fact.payload
+        if payload.get("registry") != "minecraft:enchantment":
+            continue
+        if payload.get("tag") != tag_id:
+            continue
+        members = {
+            value
+            for value in payload.get("values") or ()
+            if isinstance(value, str) and not value.startswith("#")
+        }
+        for nested in payload.get("nested") or ():
+            if isinstance(nested, str):
+                members |= _enchant_tag_members(store, nested, depth + 1)
+        return members
+    return set()
+
+
+def _enchant_options(options: object, store: FactStore) -> set[str] | None:
+    if isinstance(options, str) and options.startswith("#"):
+        return _enchant_tag_members(store, options[1:]) or None
+    if isinstance(options, list):
+        members = {value for value in options if isinstance(value, str)}
+        return members or None
+    return None
+
+
+def _enchant_levels(
+    members: set[str], data_base: Path
+) -> tuple[int, int] | None:
+    """允许的附魔等级区间。任何一项定义缺失就返回 None，不猜。"""
+    low: int | None = None
+    high: int | None = None
+    for ident in members:
+        namespace, _, name = ident.partition(":")
+        path = Path(data_base) / "data" / namespace / "enchantment" / f"{name}.json"
+        if not path.is_file():
+            return None
+        try:
+            doc = read_json(path)
+        except (OSError, ValueError):
+            return None
+        if not isinstance(doc, dict):
+            return None
+        level_low = doc.get("min_level", 1)
+        level_high = doc.get("max_level", 1)
+        if not isinstance(level_low, int) or not isinstance(level_high, int):
+            return None
+        low = level_low if low is None else min(low, level_low)
+        high = level_high if high is None else max(high, level_high)
+    if low is None or high is None:
+        return None
+    return low, high
+
+
+def _stack_cap(store: FactStore, item_id: str) -> int:
+    """支付物的堆叠上限。组件事实缺这一项就是默认 64。"""
+    for fact in store.of_kind("components"):
+        if fact.payload.get("item") != item_id:
+            continue
+        value = (fact.payload.get("components") or {}).get("minecraft:max_stack_size")
+        return value if isinstance(value, int) else DEFAULT_STACK
+    return DEFAULT_STACK
+
+
+def _additional_cost(level: int, doubled: bool) -> tuple[int, int]:
+    """某一等级下的加价区间：`2 + rand(5+10L) + 3L`，`random` 的上界开区间。"""
+    base = 2 + 3 * level
+    return (base * 2, (base + 5 + 10 * level - 1) * 2) if doubled else (
+        base,
+        base + 5 + 10 * level - 1,
+    )
+
+
+def _conditional_price(
+    wants: dict,
+    doc: dict,
+    store: FactStore,
+    data_base: Path,
+) -> tuple[dict, dict | None, list[str]]:
+    """把「0 价 + 附魔加价」的报价换成区间，并附上价格模型。
+
+    数据里写了 0 只是占位；不换的话下游只能判「对价不完整」并放弃这条报价。
+    """
+    modifiers = doc.get("given_item_modifier")
+    if not isinstance(modifiers, list):
+        return wants, None, []
+    enchant = next(
+        (
+            modifier
+            for modifier in modifiers
+            if isinstance(modifier, dict)
+            and modifier.get("type") in ENCHANT_RANDOMLY
+            and modifier.get("include_additional_cost_component") is True
+        ),
+        None,
+    )
+    if enchant is None or wants.get("count") != 0:
+        return wants, None, []
+
+    members = _enchant_options(enchant.get("options"), store)
+    if not members:
+        return wants, None, ["price_range 无法确定：附魔选项标签没有成员"]
+    levels = _enchant_levels(members, data_base)
+    if levels is None:
+        return wants, None, ["price_range 无法确定：附魔定义的 max_level 不可得"]
+
+    doubled = _enchant_tag_members(store, DOUBLE_PRICE_TAG)
+    overlap = members & doubled if doubled else set()
+    any_doubled = bool(overlap)
+    all_doubled = bool(overlap) and overlap == members
+
+    low_level, high_level = levels
+    lowest = min(
+        _additional_cost(level, all_doubled)[0]
+        for level in range(low_level, high_level + 1)
+    )
+    highest = max(
+        _additional_cost(level, any_doubled)[1]
+        for level in range(low_level, high_level + 1)
+    )
+    cap = _stack_cap(store, wants["id"])
+    low = min(cap, lowest)
+    high = min(cap, highest)
+
+    priced = dict(wants)
+    priced["count"] = {"min": low, "max": high}
+    model = {
+        "kind": "enchant_randomly",
+        "formula": "2 + random(5 + 10*level) + 3*level",
+        "levels": {"min": low_level, "max": high_level},
+        "doubled_by": DOUBLE_PRICE_TAG,
+        "doubling": "all" if all_doubled else ("some" if any_doubled else "none"),
+        "clamp": cap,
+        "basis": (
+            "EnchantRandomlyFunction#enchantItem 写 ADDITIONAL_TRADE_COST；"
+            "VillagerTrade#getOffer 加到 wants 上并按堆叠上限夹取"
+        ),
+    }
+    return priced, model, []
+
 
 
 class TradeAdapter(Adapter):
@@ -284,6 +455,13 @@ class TradeAdapter(Adapter):
         if wants is None:
             missing.append("wants 无法解析")
 
+        price_model: dict | None = None
+        if wants is not None:
+            wants, price_model, price_missing = _conditional_price(
+                wants, doc, store, pack_dir
+            )
+            missing.extend(price_missing)
+
         additional: list[dict] = []
         raw_additional = doc.get("additional_wants")
         if raw_additional is not None:
@@ -311,9 +489,11 @@ class TradeAdapter(Adapter):
             "profession": None if shared else segment,
             "level": _level(file_label, "villager_trade"),
             "gives": gives,
-            "wants": wants,
+            "wants": [wants] if wants is not None else [],
             "additional_wants": additional,
         }
+        if price_model is not None:
+            payload["price_model"] = price_model
         if shared:
             payload["shared_group"] = shared_groups.get(segment, segment)
             # 共用条目的真实归属从交易组正向展开得到：一条可能同时属于

@@ -35,6 +35,7 @@ from .index import ANCHORS, build_index
 from .verify import (
     known_structures,
     verify_drop_refs,
+    verify_fluid_bucket_blocks,
     verify_mining_refs,
     verify_place_refs,
     verify_structure_refs,
@@ -49,6 +50,7 @@ __all__ = [
     "default_idioms",
     "known_structures",
     "verify_drop_refs",
+    "verify_fluid_bucket_blocks",
     "verify_mining_refs",
     "verify_place_refs",
     "verify_structure_refs",
@@ -224,3 +226,4 @@ class SourceAdapter(Adapter):
         verify_drop_refs(store)
         verify_structure_refs(store)
         verify_mining_refs(store)
+        verify_fluid_bucket_blocks(store)

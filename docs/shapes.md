@@ -285,6 +285,18 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 
 **条目类型**共 9 种：`empty`、`item`、`loot_table`、`dynamic`、`tag`、`slots`、`alternatives`、`sequence`、`group`。`dynamic` 条目必须显式登记，不能静默跳过。
 
+**函数可以改变物品身份。** `exploration_map` 把空地图改写成带目的地数据的地图：
+新版数据里 `name` 已经写成具体地图（`abandoned_camp_map` 一类），旧版写的是
+`map`、产物才是 `filled_map`。带这个函数的条目补两个字段：
+
+| 字段 | 含义 |
+|---|---|
+| `product_id` | **修饰后**的物品身份。旧版 `map` → `filled_map`；新版与 `name` 相同 |
+| `map_destination` / `map_decoration` / `map_zoom` | 函数参数原样保留，供按目的地展开 |
+
+`name` 保持数据原样，不做改写。下游按 `product_id` 判身份，不必自己实现一遍
+`exploration_map` 的语义（[ADR 0002](adr/0002-fact-and-link-kinds.md)）。
+
 **摊平不等于丢语义。** 逐条目一行时仍要带两样东西：
 
 | 字段 | 何时出现 | 读法 |
@@ -358,6 +370,24 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 代码侧则是 `MerchantOffer(costA, costB, result, …)` 的两个支付位。附魔书要绿宝石 +
 书、藏宝图要绿宝石 + 指南针。只取第一个支付物会得到「绿宝石换附魔书」，把书这个
 前提抹掉（[ADR 0006](adr/0006-trades.md)）。
+
+**事实里的 `wants` 一律是数组**，与 `additional_wants` 同形。数据包有时把单个
+支付物写成对象 `{count, id}`，照原样放进事实会让下游写两条分支；统一成
+`[{count, id}]` 之后，两种写法只有一个读法。
+
+**对价不一定在数据里。** 附魔书报价的 `wants.count` 写的是 `0`，真实价格由
+`enchant_randomly` 选中附魔的等级决定：
+
+```
+ADDITIONAL_TRADE_COST = 2 + random(5 + 10*level) + 3*level     # EnchantRandomlyFunction#enchantItem
+价格 = clamp(wants.count + 附加, 0, 支付物的 max_stack_size)      # VillagerTrade#getOffer
+宝藏附魔再 ×2（1.18.2 的 EnchantBookForEmeralds 另有同样一条）
+```
+
+这类报价把 `count` 写成 `{min, max}`，并附 `price_model`（公式、等级区间、
+是否翻倍、夹取上限、依据）。等级区间从 `options` 指向的附魔标签展开、
+`max_level` 读附魔定义；标签没有事实或定义缺 `max_level` 时不猜，
+记 `missing` 并把这一条标 `partial`。
 
 **交易组不按等级划分时 `level` 缺席**：流浪商人的 `buying` / `common` / `uncommon`
 三个交易组没有等级段。事实标 `partial` 并写 `missing`，台账同步标 `partial`——

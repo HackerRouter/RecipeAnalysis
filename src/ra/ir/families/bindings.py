@@ -271,7 +271,11 @@ def compile_bindings(
     # `holder` 是承载的方块实体类型（`minecraft:decorated_pot`）。绑定到
     # `block:` 而不是 `world:`，因为陶罐本身要有来源：它由模板方块桥接保证，
     # 而模板方块又接到 `world:`。多绕一层能让「这是什么方块给的」留在证明链上。
-    items_by_holder: dict[tuple[str, str], list[str]] = {}
+    #
+    # 模板里的直接物品**没有战利品表**：它们写在方块实体的 NBT 里，拆掉方块即得。
+    # 因此把「哪个模板、哪个槽、共几处」一并放进 `meta.placements` / `count`，
+    # 下游不必自己实现一遍模板 NBT 的读取（R4）才能用这条规则。
+    items_by_holder: dict[tuple[str, str], list[dict]] = {}
     for fact in template_facts:
         for ref in fact.payload.get("item_refs") or []:
             if not isinstance(ref, dict):
@@ -283,9 +287,11 @@ def compile_bindings(
             if ident not in item_ids:
                 result.unknown_item_ids[ident] += 1
                 continue
-            items_by_holder.setdefault((holder, ident), []).append(fact.prov.file)
+            items_by_holder.setdefault((holder, ident), []).append(
+                {"template": fact.prov.file, "slot": ref.get("slot")}
+            )
 
-    for (holder, ident), files in sorted(items_by_holder.items()):
+    for (holder, ident), placements in sorted(items_by_holder.items()):
         if holder not in block_ids:
             # 方块实体类型名不一定是方块名（`minecraft:skull` ↔ `skeleton_skull`），
             # 对不上的留痕，不拼一个可能不存在的 block 节点
@@ -300,9 +306,11 @@ def compile_bindings(
                 kind="yield",
                 family=f"{FAMILY}/template_item",
                 meta={
-                    "basis": "模板里的方块实体带该物品；拆掉方块即得",
+                    "basis": "模板里的方块实体带该物品；拆掉方块即得（无战利品表）",
                     "holder": holder,
-                    "templates": files[:3],
+                    "templates": sorted({item["template"] for item in placements})[:3],
+                    "placements": placements[:20],
+                    "count": len(placements),
                 },
             )
         )

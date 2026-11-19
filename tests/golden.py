@@ -152,9 +152,9 @@ SAMPLES_263: tuple[Sample, ...] = (
         node="item:minecraft:lava_bucket",
         status="true",
         covers="流体桶",
-        note="BucketItem 构造器；空桶是消耗品",
+        note="BucketItem 构造器；空桶是消耗品，被装进去的熔岩是 `via` 方块前置",
         family=("code/fluid_buckets",),
-        node_contains=("item:minecraft:bucket",),
+        node_contains=("item:minecraft:bucket", "block:minecraft:lava"),
     ),
     Sample(
         node="item:minecraft:nether_star",
@@ -270,8 +270,8 @@ SAMPLES_263: tuple[Sample, ...] = (
         node="item:minecraft:filled_map",
         status="true",
         covers="玩家行为",
-        note="空地图 + 玩家探索填充；制图师卖的是空地图",
-        family=("bridge/entity_behaviour",),
+        note="空地图被玩家探索填充：物品换形，不是合成；制图师卖的是空地图",
+        family=("bridge/item_conversion",),
     ),
     Sample(
         node="item:minecraft:leather",

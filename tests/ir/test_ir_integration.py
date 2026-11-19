@@ -84,6 +84,23 @@ class _CompileBase:
         ids = [rule.id for rule in self.rules.rules]
         self.assertEqual(len(ids), len(set(ids)), "规则 id 必须全局唯一")
 
+    def test_template_item_rules_carry_placements(self) -> None:
+        """模板里的直接物品要说清「在哪个模板、哪个槽、共几处」。
+
+        这些物品没有战利品表，只有模板 NBT；不给位置，下游就必须自己实现
+        一遍模板读取才能用这条规则。
+        """
+        rules = [rule for rule in self.rules.rules if rule.family == "bindings/template_item"]
+        self.assertTrue(rules)
+        for rule in rules:
+            placements = rule.meta.get("placements")
+            self.assertIsInstance(placements, list, rule.id)
+            self.assertTrue(placements, rule.id)
+            self.assertGreaterEqual(rule.meta.get("count", 0), len(placements), rule.id)
+            for placement in placements:
+                self.assertTrue(placement["template"], rule.id)
+            self.assertIn("slot", placements[0])
+
     def test_no_rule_has_head_in_body(self) -> None:
         for rule in self.rules.rules:
             self.assertNotIn(rule.head, rule.body, rule.id)

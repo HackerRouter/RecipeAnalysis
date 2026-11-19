@@ -168,6 +168,36 @@ class CodePathBase:
                 continue
             self.assertEqual(link["inputs"], ["item:minecraft:water_bucket"])
 
+    def test_fluid_buckets_carry_their_block(self) -> None:
+        """空桶 + 流体/方块 → 满桶：装进去的那件东西进 `via`。
+
+        流体名是按常量小写推的（`Fluids.WATER` → `block:minecraft:water`），
+        所以顺带钉住它确实落在 block 注册表里——`verify_fluid_bucket_blocks`
+        会揟掉对不上的 `via`，这条测试保证揟掉的不是本应有的前置。
+        """
+        blocks: set[str] = set()
+        for fact in self.store.of_kind("registry"):
+            if fact.payload.get("registry") == "minecraft:block":
+                blocks = set(fact.payload["entries"])
+        self.assertTrue(blocks)
+
+        links = {
+            fact.payload["link"]["head"]: fact.payload["link"]
+            for fact in self.links("fluid_buckets")
+        }
+        self.assertEqual(
+            sorted(links),
+            [
+                "item:minecraft:lava_bucket",
+                "item:minecraft:powder_snow_bucket",
+                "item:minecraft:water_bucket",
+            ],
+        )
+        for head, link in links.items():
+            self.assertEqual(link["inputs"], ["item:minecraft:bucket"], head)
+            self.assertEqual(len(link["via"]), 1, head)
+            self.assertIn(link["via"][0].split(":", 1)[1], blocks, head)
+
     def test_no_failed_rows(self) -> None:
         self.assertEqual(self.store.ledger.failed(), [])
 

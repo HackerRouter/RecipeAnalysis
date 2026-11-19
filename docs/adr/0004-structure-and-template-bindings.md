@@ -40,7 +40,21 @@ block:minecraft:oxidized_copper_golem_statue  ←seeds←  world:minecraft:overw
 | 只补 `entity:villager` 这一个特例 | 同一字段里还有猫、马、铁傀儡、猪灵；单点修补会让下次遇到同类时再犯一遍 |
 | 推一个结构 ID 当 body | 硬拼会造出假节点，比缺一条边更糟（假节点会被当成已覆盖） |
 
-## 三、结构 JSON 的刷怪 → `entity`
+## 三、模板方块实体里的物品 → `item`
+
+`trial_chambers/decor/flow_pot.snbt` 的饰纹陶罐把陶片写在方块实体 NBT 里：
+
+```
+item:minecraft:flow_pottery_sherd  ←yield←  block:minecraft:decorated_pot
+```
+
+这类物品**没有战利品表**：方块一拆，NBT 里装着的东西直接进背包。下游按「`item ← table ← block`」去查会什么也查不到，规则本身就是唯一证据，所以形状取 `yield` 而不是 `produces`。
+
+body 绑定到 `block:` 而不是 `world:`，让「这是哪个方块给的」留在证明链上（陶罐本身由模板方块桥接保证来源）。`holder` 不在方块注册表时（`minecraft:skull` ↔ `skeleton_skull`）不拼节点，记 `unknown_item_holders`。
+
+`meta` 带位置与数量：`placements`（前 20 处，每处 `template` 与 `slot`）、`count`（总处数）。要回答「容器在哪、装了几个」得读模板 NBT，而下游没有模板事实；只给三个模板文件名，数量就只能靠另写一套解析凑第二个答案。
+
+## 四、结构 JSON 的刷怪 → `entity`
 
 ```
 entity:minecraft:guardian     ←spawns←  structure:minecraft:monument
@@ -58,7 +72,7 @@ structure:minecraft:monument  ←seeds←   world:minecraft:overworld
 
 **空 `spawn_overrides` 不等同于缺陷**：「结构内不额外刷怪」与「结构不存在」是两个结论。试炼密室的怪物全部来自刷怪笼，配置在 `data/<ns>/trial_spawner/**`，是另一个事实种类。
 
-## 四、结构拼装器代码里的实体 → `entity`
+## 五、结构拼装器代码里的实体 → `entity`
 
 `elder_guardian` 与 `evoker` 不在 `spawn_overrides` 里，它们在结构拼装器的生成代码里直接 `create`。idiom `structure_entities` 的判据是**路径 + 类名后缀**，不是实体名：
 
@@ -67,7 +81,7 @@ structure:minecraft:monument  ←seeds←   world:minecraft:overworld
 
 前提用 `assume:structure_content`（「结构里装进去的东西可取得」），不绑结构名——类名与结构 ID 不一一对应（`OceanMonumentPieces` 对应 `monument`）。
 
-## 五、例外表要早于其它归因
+## 六、例外表要早于其它归因
 
 `petrified_oak_slab` 有战利品表也有放置桥，两者互指成环，`cycle_no_entry` 暗示「只差一步即可获取」，而实际结论是「命令专用」。所以 `attribute()` 把例外表检查提到其余全部归因之前。
 

@@ -34,11 +34,53 @@ __all__ = [
     "ENTRY_KINDS",
     "IDENTITY_KEYS",
     "LootAdapter",
+    "annotate_products",
     "condition_type",
     "normalize_conditions",
     "normalize_functions",
     "walk_entry",
 ]
+
+# `exploration_map` 把一张空地图改写成带目的地数据的已填充地图。
+# 两版的物品 id 不同：新版在数据里已经写成具体地图（`abandoned_camp_map`），
+# 旧版只写 `map`，产物统一是 `filled_map`。
+EXPLORATION_MAP = frozenset({"exploration_map", "minecraft:exploration_map"})
+EMPTY_MAP_IDS = frozenset({"minecraft:map", "minecraft:filled_map"})
+
+
+def _annotate_entry(entry: dict) -> None:
+    if entry.get("kind") != "item":
+        return
+    for function in entry.get("functions") or ():
+        if not isinstance(function, dict):
+            continue
+        if function.get("function") not in EXPLORATION_MAP:
+            continue
+        product = entry.get("name")
+        if product in EMPTY_MAP_IDS:
+            # 旧版写在物品名里的是 `map`；修饰后物品变成 `filled_map`
+            product = "minecraft:filled_map"
+        if isinstance(product, str):
+            entry["product_id"] = product
+        for key in ("destination", "decoration", "zoom"):
+            if key in function:
+                entry[f"map_{key}"] = function[key]
+        return
+
+
+def annotate_products(payload: dict) -> None:
+    """给带 `exploration_map` 的条目补「修饰后的产物 ID」。
+
+    `product_id` 是**修饰后**的物品身份，`name` 仍是数据里写的那一个。
+    两者在旧版不同（`map` → `filled_map`），新版相同（数据里已写成具体地图），
+    下游按 `product_id` 判身份即可，不必自己实现 `exploration_map` 的语义。
+    """
+    for pool in payload.get("pools") or ():
+        if not isinstance(pool, dict):
+            continue
+        for entry in pool.get("entries") or ():
+            if isinstance(entry, dict):
+                _annotate_entry(entry)
 
 
 class LootAdapter(Adapter):
@@ -75,10 +117,12 @@ class LootAdapter(Adapter):
 
         table = normalize_table(doc, table_id_from_file(file_label))
         missing = list(table.missing)
+        payload = fact_payload(table)
+        annotate_products(payload)
         store.add(
             Fact(
                 kind="loot_table",
-                payload=fact_payload(table),
+                payload=payload,
                 prov=Prov(input="src", file=file_label),
                 status=Status.PARTIAL if missing else Status.PARSED,
                 missing=tuple(missing),

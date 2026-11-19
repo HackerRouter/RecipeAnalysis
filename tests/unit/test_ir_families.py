@@ -469,6 +469,57 @@ class EntityBehaviourTest(unittest.TestCase):
             rules[0].body, ("assume:player", "item:minecraft:writable_book")
         )
 
+    def test_transmutes_form_is_an_item_conversion(self) -> None:
+        """空地图 → 已填充地图：同一件东西换形态，不是合成也不是掉落。"""
+        rules, problems = entity_behaviour_rules(
+            self._behaviour(
+                {
+                    "produces": ["item:minecraft:filled_map"],
+                    "form": "transmutes",
+                    "actor": "assume:player",
+                    "inputs": ["item:minecraft:map"],
+                }
+            ),
+            _registry("item:minecraft:filled_map", "item:minecraft:map"),
+        )
+        self.assertEqual(problems, {})
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(rules[0].kind, "transmutes")
+        self.assertEqual(rules[0].family, "bridge/item_conversion")
+        self.assertEqual(rules[0].body, ("assume:player", "item:minecraft:map"))
+
+    def test_transmutes_without_input_is_recorded(self) -> None:
+        """没有输入就没有被换形的那件东西，不能写成无条件产出。"""
+        rules, problems = entity_behaviour_rules(
+            self._behaviour(
+                {
+                    "produces": ["item:minecraft:filled_map"],
+                    "form": "transmutes",
+                    "actor": "assume:player",
+                    "inputs": [],
+                }
+            ),
+            _registry("item:minecraft:filled_map"),
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(problems, {"case:no_inputs": 1})
+
+    def test_unknown_form_is_recorded(self) -> None:
+        """`form` 打错字不能静默落回 yield。"""
+        rules, problems = entity_behaviour_rules(
+            self._behaviour(
+                {
+                    "produces": ["item:minecraft:filled_map"],
+                    "form": "crafts",
+                    "actor": "assume:player",
+                    "inputs": ["item:minecraft:map"],
+                }
+            ),
+            _registry("item:minecraft:filled_map", "item:minecraft:map"),
+        )
+        self.assertEqual(rules, [])
+        self.assertEqual(problems, {"case:unknown_form:crafts": 1})
+
     def test_world_can_be_the_actor(self) -> None:
         """树生成时挂蜂巢：主体是世界。"""
         rules, _ = entity_behaviour_rules(

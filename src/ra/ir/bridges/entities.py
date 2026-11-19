@@ -30,6 +30,13 @@ __all__ = ["entity_behaviour_rules", "entity_source_rules"]
 # 需要对账的节点排序。调用方须为每个排序给出该版本存在的 id 集合。
 CHECKED_SORTS = ("item", "block", "entity")
 
+# 行为表的两种产出形态：`form` → (规则 kind, 族名)。
+# 缺省 `yield`；`transmutes` 是物品换形，不属战利品产出。
+_BEHAVIOUR_FORMS = {
+    "yield": ("yield", "bridge/entity_behaviour"),
+    "transmutes": ("transmutes", "bridge/item_conversion"),
+}
+
 
 def _require_registries(known: dict[str, set[str]]) -> None:
     missing = [sort for sort in CHECKED_SORTS if sort not in known]
@@ -154,7 +161,18 @@ def entity_behaviour_rules(
 
     `actor` / `inputs` 可以是任何排序的节点：
     `tadpole` 的 actor 是 `block:minecraft:frogspawn`（孵化），
-    `player_head` 的 actor 是 `assume:player`（玩家自身）。
+    `filled_map` 的 actor 是 `assume:player`（玩家自己动手）。
+
+    `form` 分两种产出形态，缺省 `yield`：
+
+    | form | 语义 | kind |
+    |---|---|---|
+    | `yield` | 行为主体 + 消耗品 → 产出一件新东西 | `yield` |
+    | `transmutes` | 手里那件东西换形态成另一件（空地图 → 已填充地图） | `transmutes` |
+
+    `transmutes` 单列的理由：这两条没有合成表，产出与输入是同一件东西的前后态。
+    留 `yield` 会被下游按族名归成「某主体掉了这件东西」，与战利品混为一类。
+    它的 `inputs` 必须非空——没有输入就没有被换形的东西。
 
     对账的粒度不对称，因为前提与结论的性质不同：
 
@@ -179,6 +197,14 @@ def entity_behaviour_rules(
         inputs = spec.get("inputs") or []
         if not isinstance(actor, str) or not isinstance(inputs, list):
             problems[f"{name}:bad_actor_or_inputs"] += 1
+            continue
+        form = spec.get("form", "yield")
+        if form not in _BEHAVIOUR_FORMS:
+            problems[f"{name}:unknown_form:{form}"] += 1
+            continue
+        if form == "transmutes" and not inputs:
+            # 没有输入就没有被换形的那件东西，写成「无条件产出」会凭空点亮节点
+            problems[f"{name}:no_inputs"] += 1
             continue
 
         body_nodes: list[str] = []
@@ -221,8 +247,8 @@ def entity_behaviour_rules(
                     id=f"bridge:behaviour:{name}:{index}",
                     head=head,
                     body=tuple(body_nodes),
-                    kind="yield",
-                    family="bridge/entity_behaviour",
+                    kind=_BEHAVIOUR_FORMS[form][0],
+                    family=_BEHAVIOUR_FORMS[form][1],
                     meta={
                         "behaviour": name,
                         "actor": actor,
