@@ -25,7 +25,7 @@
 | `facts/` | 事实库：`<种类>.jsonl`、台账 `ledger.jsonl`、汇总 `summary.json` | `ra ingest` / `ra run` |
 | `report/` | 可达性、覆盖率、`run.json`、缺口与工具要求明细 | `ra run` |
 | `export/` | 下游可查表与 `exports.json` | `ra export` |
-| `probe/` | `profile.json` | `ra probe` |
+| `profile.json` | 探测结论：目录归属、方言、来源判定、输入 provenance（每版一份，放在产物根上） | `ra probe` / `ra ingest` |
 | `graph.json` | 全量关系图的内部表示（核心产物，放在产物根上） | `ra graph` |
 | `paths/` | `ra-paths` 的 `.dot/.svg/.html` 渲染件 | `ra-paths` |
 | `guide.md` | 适配指南 | `ra guide` |
@@ -36,7 +36,7 @@
 - 台账与汇总如果留在根上，「事实库」就散在两处；只读 `facts/` 的复盘与 `ra why` 会漏掉族级不可用与覆盖率。
 - 渲染件与核心产物同层时，一份 `graph.json` 与它派生出的几十份副本混在一起，整目录同步的下游连可视化一起搬走；反过来把 `graph.json` 埋进子目录，下游又要多记一层路径。
 
-因此下游只以 `export/` 与 `facts/` 为查表入口，其余目录是分析过程与可视化；`graph.json` 与 `guide.md` 是每版各一份的产物，直接放产物根上。`ra-paths` 把渲染件写到 `--graph` 同级的 `paths/` 目录：视图跟着内部表示走，但不占据核心产物那层。
+因此下游只以 `export/` 与 `facts/` 为查表入口，其余目录是分析过程与可视化；`profile.json`、`graph.json` 与 `guide.md` 是每版各一份的产物，直接放产物根上。`ra-paths` 把渲染件写到 `--graph` 同级的 `paths/` 目录：视图跟着内部表示走，但不占据核心产物那层。
 
 ## 三、关系图：两条命令，中间一份文件
 

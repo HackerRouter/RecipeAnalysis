@@ -159,7 +159,7 @@ ra-paths --graph output/26.3/graph.json minecraft:emerald   # 渲染件写 outpu
 | `report/gaps.jsonl` | 不属于 `no_rule` 的不可达项 | `ra run` |
 | `report/run.json` | 复算凭据：jar 摘要、IR schema、事实摘要、提交号 | `ra run` |
 | `report/harvest.jsonl` | 方块 → 最低工具等级 / 最弱合格工具 | `ra run` |
-| `probe/profile.json` | 探测结果、jar 摘要、reports 摘要、Java 版本、生效数据根与数据包覆盖摘要 | `ra probe` / `ra ingest` |
+| `profile.json` | 探测结果、jar 摘要、reports 摘要、Java 版本、生效数据根与数据包覆盖摘要（每版一份，与 `graph.json` / `guide.md` 同在产物根上） | `ra probe` / `ra ingest` |
 | `graph.json` | 全量关系图的内部表示：规则 + 三值状态 + 种子（核心产物，与 `guide.md` 同在产物根上） | `ra graph` |
 | `paths/paths_<label>_<物品>.{dot,svg,html}` | 单个物品的来源图（派生视图，可反复重画） | `ra-paths` |
 | `guide.md` | 该版本的适配指南：目录归属、形状、未归属项、族级不可用 | `ra guide` |

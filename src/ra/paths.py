@@ -109,9 +109,9 @@ def output_dir(root: Path, label: str) -> Path:
 PATHS_DIR = "paths"
 
 
-def output_probe(root: Path, label: str) -> Path:
-    """探测结论（`profile.json`）：这一版输入长什么样。"""
-    return output_dir(root, label) / "probe"
+def output_profile(root: Path, label: str) -> Path:
+    """探测结论 `profile.json`：这一版输入长什么样，与 `guide.md` 同在产物根上。"""
+    return output_dir(root, label) / "profile.json"
 
 
 def output_facts(root: Path, label: str) -> Path:

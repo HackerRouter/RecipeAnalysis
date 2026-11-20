@@ -45,7 +45,7 @@ from .paths import (
     output_export,
     output_facts,
     output_paths,
-    output_probe,
+    output_profile,
     output_report,
     pack_data,
     pack_jar,
@@ -251,7 +251,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
     write_json(
-        output_probe(root, manifest.label) / "profile.json",
+        output_profile(root, manifest.label),
         _profile_payload(profile, reports, manifest),
     )
 
@@ -338,7 +338,7 @@ def cmd_probe(args: argparse.Namespace) -> int:
     registries = Registries.load(reports.root / "registries.json")
     profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
-    out_path = output_probe(root, manifest.label) / "profile.json"
+    out_path = output_profile(root, manifest.label)
     write_json(out_path, _profile_payload(profile, reports, manifest))
 
     print(f"label            {profile.label}")
@@ -735,7 +735,7 @@ def cmd_guide(args: argparse.Namespace) -> int:
     root, pack_dir, manifest = _pack(args)
     out_dir = output_dir(root, manifest.label)
 
-    profile_path = output_probe(root, manifest.label) / "profile.json"
+    profile_path = output_profile(root, manifest.label)
     profile = _read_json_optional(profile_path)
     if profile is None:
         print(f"错误：{profile_path} 不存在，先跑 `ra probe --label {manifest.label}`",
