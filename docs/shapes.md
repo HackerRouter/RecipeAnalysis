@@ -293,9 +293,20 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 |---|---|
 | `product_id` | **修饰后**的物品身份。旧版 `map` → `filled_map`；新版与 `name` 相同 |
 | `map_destination` / `map_decoration` / `map_zoom` | 函数参数原样保留，供按目的地展开 |
+| `map_structures` | `destination` 展开后的结构 id 列表：`#minecraft:on_abandoned_camp_bamboo_jungle` → `minecraft:abandoned_camp_bamboo_jungle` |
 
 `name` 保持数据原样，不做改写。下游按 `product_id` 判身份，不必自己实现一遍
 `exploration_map` 的语义（[ADR 0002](adr/0002-fact-and-link-kinds.md)）。
+
+`map_structures` 默认按结构注册表的 `tag` 事实展开（嵌套标签逐层进去），
+`destination` 直接写结构名时就是它自己，展开不到时为空列表。
+结构注册表的两个名字都要认：`worldgen/structure` 与旧版的 `worldgen/configured_structure_feature`。
+
+旧版数据**不写** `destination`：它的值等于代码默认值时序列化会省略。默认值从源码取
+（`ExplorationMapFunction.DEFAULT_FEATURE = ConfiguredStructureTags.ON_TREASURE_MAPS`），
+补出来的条目带 `map_destination_default: true`——与数据里写明的分开，两者可信度不同。
+源码里也找不到默认值、或默认标签不在 `tag` 事实里时不补，只把条数记进 `facts-summary.json`
+的 `loot_map_destination_default_unresolved`。
 
 **摊平不等于丢语义。** 逐条目一行时仍要带两样东西：
 

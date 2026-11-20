@@ -32,6 +32,7 @@ from .idioms.structure_gadgets import exported as gadget_idioms
 from .idioms.trades import exported as trade_idioms
 from .idioms.transforms import exported as transform_idioms
 from .index import ANCHORS, build_index
+from .loot_defaults import apply_default_destination, exploration_map_default
 from .verify import (
     known_structures,
     verify_drop_refs,
@@ -227,3 +228,14 @@ class SourceAdapter(Adapter):
         verify_structure_refs(store)
         verify_mining_refs(store)
         verify_fluid_bucket_blocks(store)
+
+        # `exploration_map` 的默认目的地只写在 loot 函数源码里，要补的字段在战利品事实里。
+        # 这一层同时能拿到 Java 源码根与全量事实，所以跨族补写落在这里（见 loot_defaults 模块头）。
+        default_destination = exploration_map_default(java_root)
+        if default_destination is not None:
+            filled, unresolved = apply_default_destination(store, default_destination)
+            if filled:
+                store.extra["loot_map_destination_default"] = filled
+                store.extra.pop("loot_map_destination_missing", None)
+            if unresolved:
+                store.extra["loot_map_destination_default_unresolved"] = unresolved

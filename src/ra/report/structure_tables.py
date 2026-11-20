@@ -6,7 +6,7 @@
 |---|---|---|
 | `structures` | 一个拼图结构 | 允许出现的模板、权重、拼装深度上限 |
 | `template_containers` | 一个容器 | 容器白名单（模板 → 坐标或处理器 + 战利品表） |
-| `template_blocks` | 一个方块状态 | 结构专有方块白名单（含状态与数量） |
+| `template_blocks` | 一个方块状态 | 结构专有方块白名单（含状态与数量）；`structure_block` 行带 `markers` |
 | `structure_containers` | 一个结构类型上的容器绑定 | 没有模板的结构（神殿/要塞/矿井）在代码里的带表容器 |
 
 只出身份与白名单，不出数量：一个结构实例里实际有几个箱子、几个方块，
@@ -25,6 +25,15 @@
 `start_pool` 指向模板池；池内元素按 `element` 摊平，`list_pool_element` 的
 嵌套成员带 `nested`。`weight_total` 是同一池内顶层元素的权重和，
 嵌套元素不参与它的分母。
+
+`template_blocks` 的 `markers` 是模板里的**数据标记名**：`structure_block{mode:data}`
+方块实体上的 `metadata`。它是一类不以方块表达的机制——海军遗构的溺尸、船骸的三种箱子、
+末地城的哨兵，都由结构生成代码按标记名决定。标记名不在任何战利品表里：
+只看方块状态，模板里只有一堆 `structure_block{mode:data}`，看不出那里会冒出什么。
+
+标记名挂在方块状态行上，不拆成单独的行：同一格既是一个方块也是一个标记，
+拆行会让 `count` 重复计一遍。`structure_containers` 的 `markers` 是同一概念的代码侧写法
+（`handleDataMarker` 的分支名），两处同形，都是名字列表。
 """
 
 from __future__ import annotations
@@ -209,6 +218,8 @@ def build_structure_tables(store: FactStore) -> dict[str, list[dict]]:
         jigsaw = payload.get("jigsaw_pools")
         if jigsaw:
             template_pools[template] = tuple(sorted(set(jigsaw)))
+        markers = payload.get("markers") or []
+        marked = False
         for container in payload.get("containers") or []:
             table = container.get("table")
             row = {
@@ -225,12 +236,29 @@ def build_structure_tables(store: FactStore) -> dict[str, list[dict]]:
             containers.append(row)
         for state, count in (payload.get("block_counts") or {}).items():
             block, state_body = _phase(state)
+            row = {
+                "template": template,
+                "block": block,
+                "state": state_body,
+                "count": count,
+            }
+            if markers and block == "minecraft:structure_block" and (state_body or "").startswith("mode:data"):
+                # 标记名挂在对应的方块状态行上：一个模板里可以同时有 `drowned` 与 `chest`，
+                # 拆成多行会让 `count` 重复计一遍（同一格既是一个方块也是一个标记）。
+                row["markers"] = list(markers)
+                marked = True
+            blocks.append(row)
+
+        if markers and not marked:
+            # palette 不可读时没有方块状态行，但标记格子仍在 nbt 里。
+            # 不补行会把「看不到方块」连带成「没有标记」。
             blocks.append(
                 {
                     "template": template,
-                    "block": block,
-                    "state": state_body,
-                    "count": count,
+                    "block": "minecraft:structure_block",
+                    "state": None,
+                    "count": payload.get("marker_cells") or len(markers),
+                    "markers": list(markers),
                 }
             )
 

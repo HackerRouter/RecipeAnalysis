@@ -137,6 +137,44 @@ class StructureTablesBase:
         }
         self.assertTrue(any("half:" in (state or "") for state in states))
 
+    def test_template_markers_are_attached_to_their_block_row(self) -> None:
+        """模板里的数据标记名挂在 `structure_block{mode:data}` 行上。
+
+        海军遗构的溺尸只写在标记的 `metadata` 里：不看它，白名单里只有一堆
+        `structure_block{mode:data}`，看不出那里会冒出什么。
+        """
+        marked = [row for row in self.blocks() if row.get("markers")]
+        self.assertTrue(marked)
+        for row in marked:
+            self.assertEqual(row["block"], "minecraft:structure_block", row["template"])
+            self.assertTrue(str(row["state"]).startswith("mode:data"), row["template"])
+            self.assertIsInstance(row["markers"], list)
+
+    def test_ocean_ruin_markers_name_the_drowned(self) -> None:
+        rows = [row for row in self.blocks() if row["template"] == "underwater_ruin/big_brick_1"]
+        markers = {marker for row in rows for marker in row.get("markers", [])}
+        self.assertEqual(markers, {"chest", "drowned"})
+
+    def test_marker_names_are_not_a_block_of_their_own(self) -> None:
+        """标记不拆成单独的行：同一格既是一个方块也是一个标记，拆行会重复计 `count`。"""
+        from tests.support import store
+
+        expected: dict[str, int] = {}
+        unreadable: set[str] = set()
+        for fact in store(self.label).of_kind("template"):
+            template = fact.payload.get("template")
+            expected[template] = int(fact.payload.get("block_count") or 0)
+            if fact.payload.get("blocks_unreadable"):
+                unreadable.add(template)
+        actual: dict[str, int] = {}
+        for row in self.blocks():
+            if row["template"] in unreadable:
+                # palette 不可读，只剩标记那行；它不对应 `block_counts`
+                continue
+            actual[row["template"]] = actual.get(row["template"], 0) + row["count"]
+        for template, total in actual.items():
+            self.assertEqual(total, expected.get(template), template)
+
     def test_code_containers_join_worldgen(self) -> None:
         """代码侧容器行必须回连到世界生成事实里的结构 id。"""
         for row in self.code_containers():

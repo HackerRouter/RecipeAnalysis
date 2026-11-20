@@ -86,6 +86,10 @@
 
 `product_id` 记**修饰后**的身份，`name` 保持数据原样；目的地等参数另记 `map_destination`。这样下游按 `product_id` 判身份即可，也不会把「数据写了什么」与「游戏里得到什么」混成一个字段。
 
+目的地还要再走一步：`map_destination` 写的是结构**标签**（`#minecraft:on_abandoned_camp_bamboo_jungle`），产物要对上的是结构 id。只给标签名，下游得自己再查一遍 `tag` 事实——两边各实现一份，出现两个答案时无法判断哪个错。所以事实里直接把标签展开成 `map_structures`。
+
+旧版没有这一步可做：`destination` 写在代码默认值里（等同于默认值时序列化会省略），数据里根本没有这个键。这条默认值仍在源码里取证（`ExplorationMapFunction.DEFAULT_FEATURE`），由源码适配器补回，补写的条目带 `map_destination_default: true` 与数据里写明的区分开。两边都说不出目的地时不猜：只记条数，不造一个可能错的结构。
+
 ## 六、一个目录只有一个负责者
 
 `skip_inert_registries` 把 `data/<ns>/` 下未被 `probe.dirs` 覆盖的目录逐文件登记成「不参与获取路径推理」。新适配器再登记同一批文件就撞台账（实测报「台账重复登记同一文件」）。

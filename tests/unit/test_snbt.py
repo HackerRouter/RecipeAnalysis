@@ -7,7 +7,7 @@ from __future__ import annotations
 import unittest
 
 from ra.adapters.templates import SnbtError, parse_snbt
-from ra.mcshared.snbt import template_id_from_file
+from ra.mcshared.snbt import normalize_template, template_id_from_file
 
 
 class TemplateIdTest(unittest.TestCase):
@@ -72,6 +72,47 @@ class SnbtTest(unittest.TestCase):
     def test_trailing_content_raises(self) -> None:
         with self.assertRaises(SnbtError):
             parse_snbt("{a:1} junk")
+
+
+class MarkerTest(unittest.TestCase):
+    """`structure_block{mode:data}` 的 `metadata` 才是标记名。
+
+    这是模板里唯一不以方块表达机制的地方：海军遗构的溺尸、船骸的三种箱子
+    都靠它。`mode` 是状态、`metadata` 才是标记名，两者不能混。
+    """
+
+    def test_metadata_becomes_markers(self) -> None:
+        text = (
+            '{size:[1,3,1],palette:["minecraft:stone"],data:['
+            '{pos:[0,0,0],state:"minecraft:structure_block{mode:data}",'
+            'nbt:{id:"minecraft:structure_block",metadata:"drowned",mode:"DATA"}},'
+            '{pos:[0,1,0],state:"minecraft:structure_block{mode:data}",'
+            'nbt:{id:"minecraft:structure_block",metadata:"chest",mode:"DATA"}},'
+            '{pos:[0,2,0],state:"minecraft:stone"}]}'
+        )
+        payload, _ = normalize_template(parse_snbt(text), "underwater_ruin/big_brick_1")
+        self.assertEqual(payload["markers"], ["chest", "drowned"])
+        self.assertEqual(payload["marker_cells"], 2)
+
+    def test_empty_metadata_counts_but_adds_no_name(self) -> None:
+        """名字没写的标记也是一处标记，不能被当成普通方块。"""
+        text = (
+            '{size:[1,1,1],palette:["minecraft:stone"],data:['
+            '{pos:[0,0,0],state:"minecraft:structure_block{mode:data}",'
+            'nbt:{id:"minecraft:structure_block",metadata:"",mode:"DATA"}}]}'
+        )
+        payload, _ = normalize_template(parse_snbt(text), "x")
+        self.assertEqual(payload["markers"], [])
+        self.assertEqual(payload["marker_cells"], 1)
+
+    def test_other_block_entities_are_not_markers(self) -> None:
+        text = (
+            '{size:[1,1,1],palette:["minecraft:chest"],data:['
+            '{pos:[0,0,0],state:"minecraft:chest",'
+            'nbt:{id:"minecraft:chest",LootTable:"minecraft:chests/x"}}]}'
+        )
+        payload, _ = normalize_template(parse_snbt(text), "x")
+        self.assertEqual(payload["marker_cells"], 0)
 
 
 if __name__ == "__main__":

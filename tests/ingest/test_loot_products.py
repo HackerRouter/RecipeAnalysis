@@ -8,7 +8,8 @@
 | 1.18.2 | `minecraft:map` | `minecraft:filled_map` |
 
 事实的 `product_id` 一律记修饰后的身份，`name` 保持数据原样；
-destinations 另记 `map_destination`，供下游按目的地展开。
+destinations 另记 `map_destination`（标签原文）与 `map_structures`（展开后的结构）。
+旧版数据不写 `destination`，默认值由源码补回，带 `map_destination_default` 标记。
 """
 
 from __future__ import annotations
@@ -64,6 +65,28 @@ class Product263Test(_ProductBase, unittest.TestCase):
         for entry in self.entries_with_product():
             self.assertTrue(entry["map_destination"].startswith("#minecraft:on_abandoned_camp"))
 
+    def test_destination_tag_is_resolved_to_structures(self) -> None:
+        """目的地是结构标签，产物对得上的是结构 id。
+
+        26.3 的 `destination` 写成 `#minecraft:on_abandoned_camp_bamboo_jungle`，
+        展开后必须是 `minecraft:abandoned_camp_bamboo_jungle`。只给标签名，
+        下游得自己再查一遍 tag 事实，两边各实现一份就会有两个答案。
+        """
+        for entry in self.entries_with_product():
+            structures = entry["map_structures"]
+            self.assertEqual(len(structures), 1, entry["map_destination"])
+            self.assertTrue(structures[0].startswith("minecraft:abandoned_camp"))
+
+    def test_every_map_knows_its_structure(self) -> None:
+        """全量地图条目都能展开：留空说明某条标签不在 tag 事实里。"""
+        empty: list[tuple[str, str]] = []
+        for fact in store(self.label).of_kind("loot_table"):
+            for pool in fact.payload.get("pools") or ():
+                for entry in pool.get("entries") or ():
+                    if entry.get("product_id") and not entry.get("map_structures"):
+                        empty.append((str(fact.payload.get("table")), str(entry.get("name"))))
+        self.assertEqual(empty, [])
+
 
 @unittest.skipUnless(pack("1.18.2"), why("1.18.2"))
 class Product1182Test(_ProductBase, unittest.TestCase):
@@ -80,6 +103,18 @@ class Product1182Test(_ProductBase, unittest.TestCase):
             {entry["name"] for entry in self.entries_with_product()},
             {"minecraft:map"},
         )
+
+    def test_default_destination_is_filled_from_source(self) -> None:
+        """该版数据里没有 `destination`，默认值写在 loot 函数源码里。
+
+        `ExplorationMapFunction.DEFAULT_FEATURE = ConfiguredStructureTags.ON_TREASURE_MAPS`，
+        序列化时等于默认值就省略。所以数据里缺这个键本身就是信息，
+        补上的字段带 `map_destination_default` 与数据里写明的区分开。
+        """
+        for entry in self.entries_with_product():
+            self.assertEqual(entry["map_destination"], "#minecraft:on_treasure_maps")
+            self.assertEqual(entry["map_structures"], ["minecraft:buried_treasure"])
+            self.assertIs(entry["map_destination_default"], True)
 
 
 if __name__ == "__main__":
