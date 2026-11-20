@@ -33,7 +33,7 @@ from ...solve.fixpoint import SolveResult, State
 # 内部表示的格式版本。字段变化即 +1。
 GRAPH_SCHEMA = 1
 
-# 文件名固定：一个版本一份，随 `ra graph` 覆盖
+# 文件名固定：一个版本一份，随 `ra graph` 覆盖；位于 `output/<label>/` 根上
 GRAPH_FILE = "graph.json"
 
 

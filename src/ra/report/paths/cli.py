@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ...errors import RaError
 from ...ir.nodes import SORTS
-from ...paths import repo_root
+from ...paths import PATHS_DIR, repo_root
 from . import PathBuildError, PathOptions, build_path_graph, resolve_node
 from .options import PARAMS
 from .render import graphviz_available, write_outputs
@@ -78,7 +78,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
 
-    # 与内部表示放同一目录：一份数据 + 它派生出的图。
+    # 渲染件与内部表示分开放：`graph.json` 是核心产物，视图可按参数反复重画。
     # label 里的点必须换成下划线：`Path.with_suffix` 会把 `.3_lectern` 当成后缀吃掉。
     stem = (
         f"paths_{header.label.replace('.', '_')}_"
@@ -88,7 +88,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         built.graph,
         value,
         options,
-        graph_path.parent,
+        graph_path.parent / PATHS_DIR,
         stem=stem,
         counts={
             "isomorphic_clusters": built.isomorphic_clusters,
@@ -155,8 +155,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--graph",
         required=True,
-        help="内部表示文件（`ra graph` 的产物，如 output/<label>/graph.json）；"
-        "相对路径按仓库根解析",
+        help="内部表示文件（`ra graph` 的产物，即 output/<label>/graph.json）；"
+        "相对路径按仓库根解析，渲染件写到它同级的 paths/ 目录",
     )
     parser.add_argument("node", help="物品 id，如 minecraft:cod_bucket 或 item:minecraft:planks")
     _add_path_options(parser)

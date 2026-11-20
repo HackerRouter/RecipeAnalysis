@@ -10,7 +10,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = Path(__file__).resolve().parents[2]
-LEDGER = ROOT / "output" / "26.3" / "ledger.jsonl"
+LEDGER = ROOT / "output" / "26.3" / "facts" / "ledger.jsonl"
 
 if not LEDGER.is_file():
     print("先跑一次 ingest 生成台账")

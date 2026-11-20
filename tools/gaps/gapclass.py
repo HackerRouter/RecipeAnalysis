@@ -46,7 +46,7 @@ states = result.states
 
 gaps = [
     json.loads(l)
-    for l in pathlib.Path(f"output/{label}/gaps.jsonl").open(encoding="utf-8")
+    for l in pathlib.Path(f"output/{label}/report/gaps.jsonl").open(encoding="utf-8")
 ]
 
 buckets = collections.Counter()

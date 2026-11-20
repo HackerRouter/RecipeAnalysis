@@ -1,12 +1,14 @@
 """可达性报告。
 
-产物：
+产物在 `output/<label>/report/`：
 
 | 文件 | 内容 |
 |---|---|
 | `reachability.jsonl` | 每身份一行：`status / proof / alternatives / blocked_by` |
 | `coverage.json` | 未解释输入、未映射项、约定覆盖率、`UNKNOWN` 分布 |
 | `run.json` | 输入摘要、`Profile`、适配器版本、IR schema、计数 |
+| `gaps.jsonl` | 不属于 `no_rule` 的不可达项与归因 |
+| `harvest.jsonl` | 方块 → 最低工具等级 / 最弱合格工具 |
 
 `run.json` 缺任一项不可复算——这是 AGENTS.md 红线 4 对产物的要求。
 

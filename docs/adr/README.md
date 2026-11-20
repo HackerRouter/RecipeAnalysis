@@ -12,7 +12,7 @@
 | [`0006-trades.md`](0006-trades.md) | 交易族的规则形状、流浪商人单列假设、代码侧提取的完整性 |
 | [`0007-transforms-and-tools.md`](0007-transforms-and-tools.md) | 方块变换的事实形状、反方向与命名约定、工具要求从组件推导 |
 | [`0008-code-side-extraction.md`](0008-code-side-extraction.md) | 结构生成代码 、生物桶与流体桶、目录约定兜底与适配器约束 |
-| [`0009-report-artifacts.md`](0009-report-artifacts.md) | 物品全集与可达率分母、关系图的内部表示与渲染分离 |
+| [`0009-report-artifacts.md`](0009-report-artifacts.md) | 物品全集与可达率分母、产物目录分层、关系图的内部表示与渲染分离 |
 | [`0010-testing.md`](0010-testing.md) | 测试框架选型与版本过滤的生效时机 |
 | [`0011-structure-layout-exports.md`](0011-structure-layout-exports.md) | 结构布局的四张白名单表、拼图关系进事实、台账三态 |
 | [`0012-interaction-sources.md`](0012-interaction-sources.md) | 交互表的持有者与工具前置、类名到注册名的取法、无表交互落哪 |

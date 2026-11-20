@@ -105,6 +105,39 @@ def output_dir(root: Path, label: str) -> Path:
     return output_root(root) / label
 
 
+# 渲染件子目录名。`ra-paths` 只拿到内部表示文件，目录名从这一个常量取。
+PATHS_DIR = "paths"
+
+
+def output_probe(root: Path, label: str) -> Path:
+    """探测结论（`profile.json`）：这一版输入长什么样。"""
+    return output_dir(root, label) / "probe"
+
+
+def output_facts(root: Path, label: str) -> Path:
+    """事实库：每族一份 `<种类>.jsonl`，加台账 `ledger.jsonl` 与汇总 `summary.json`。"""
+    return output_dir(root, label) / "facts"
+
+
+def output_report(root: Path, label: str) -> Path:
+    """求解结论：可达性、覆盖率、`run.json` 与缺口/工具要求明细。"""
+    return output_dir(root, label) / "report"
+
+
+def output_export(root: Path, label: str) -> Path:
+    """下游可直接查的表（`ra export` 生成）。下游只读这一目录。"""
+    return output_dir(root, label) / "export"
+
+
+def output_paths(root: Path, label: str) -> Path:
+    """`ra-paths` 的渲染件目录：每个物品一组 `.dot/.svg/.html`。
+
+    渲染件只是内部表示派生出的视图，与 `graph.json` 分开放：内部表示是核心产物，
+    视图可以换参数反复重画，混在产物根上会让目录被几十份副本淹没。
+    """
+    return output_dir(root, label) / PATHS_DIR
+
+
 def cache_root(root: Path) -> Path:
     """datagen 与中间缓存。按内容寻址，可整目录删除后重建。"""
     return root / ".cache"

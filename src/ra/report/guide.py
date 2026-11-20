@@ -374,7 +374,7 @@ def _section_commands(label: str) -> list[str]:
              f"ra run     --label {label}",
              f"ra guide   --label {label}",
              "```", ""]
-    lines.append("产物的字段与统计口径见 `output/<label>/` 下的同名 JSON。")
+    lines.append("产物的字段与统计口径见 `output/<label>/probe/`、`facts/` 与 `report/` 下的同名 JSON。")
     lines.append("")
     return lines
 

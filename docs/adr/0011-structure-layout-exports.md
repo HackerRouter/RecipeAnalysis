@@ -90,4 +90,4 @@ palette 不可读时没有方块状态行，但标记格仍在 `nbt` 里，此�
 
 - `ra export --label <L>` 产出四张 JSONL 与一份 `exports.json`（label、事实计数、各表行数）。
 - 采集侧可以用白名单做上界校验：实测的容器表或方块不在白名单内即为异常。
-- `ledger.jsonl` 的状态值增加 `partial`，`facts-summary.json` 的覆盖率各节增加同名计数。
+- `ledger.jsonl` 的状态值增加 `partial`，`facts/summary.json` 的覆盖率各节增加同名计数。

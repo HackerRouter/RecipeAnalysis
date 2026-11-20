@@ -104,7 +104,7 @@ jar 摘要、reports 产物摘要、Java 大版本要求都是**现场可取的*
 
 | 项 | 取法 |
 |---|---|
-| jar 的 `sha256` | `ra probe` 后读 `output/<label>/profile.json` 的 `jar.sha256`；或平台自带的摘要工具 |
+| jar 的 `sha256` | `ra probe` 后读 `output/<label>/probe/profile.json` 的 `jar.sha256`；或平台自带的摘要工具 |
 | reports 产物摘要 | 同上，`profile.json` 的 `reports.digests` |
 | Java 大版本要求 | 同上，`profile.json` 的 `reports.java.version` 与 `component`；源头是 jar 内 `version.json` 的 `java_component` |
 | 实际选用的 Java | 同上，`reports.java.path` 与 `source` |

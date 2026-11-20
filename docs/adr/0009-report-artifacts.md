@@ -1,6 +1,6 @@
 # ADR 0009：产物口径与关系图表示
 
-两类产物各有各的口径问题：可达率的分母取哪里，以及关系图能不能脱离分析管道单独存在。
+三类产物各有各的口径问题：可达率的分母取哪里，产物目录怎么分，以及关系图能不能脱离分析管道单独存在。
 
 ## 一、物品全集与可达率分母都取自注册表
 
@@ -16,13 +16,35 @@
 
 守卫：`test_universe_is_registry_not_rule_nodes`、`test_typed_only_not_in_denominator`、`test_item_universe_comes_from_registry`。
 
-## 二、关系图：两条命令，中间一份文件
+## 二、产物按层分目录
+
+产物都落在 `output/<label>/` 下，但按层分目录，不平铺：
+
+| 目录 | 内容 | 写它的命令 |
+|---|---|---|
+| `facts/` | 事实库：`<种类>.jsonl`、台账 `ledger.jsonl`、汇总 `summary.json` | `ra ingest` / `ra run` |
+| `report/` | 可达性、覆盖率、`run.json`、缺口与工具要求明细 | `ra run` |
+| `export/` | 下游可查表与 `exports.json` | `ra export` |
+| `probe/` | `profile.json` | `ra probe` |
+| `graph.json` | 全量关系图的内部表示（核心产物，放在产物根上） | `ra graph` |
+| `paths/` | `ra-paths` 的 `.dot/.svg/.html` 渲染件 | `ra-paths` |
+| `guide.md` | 适配指南 | `ra guide` |
+
+判据是「下游能不能只按目录取所需」：
+
+- 平铺时下游只能按后缀 `*.jsonl` 取表，会把 `reachability` / `gaps` / `harvest` / `ledger` 一并拿走，再用文件名排除；排除表一漂就静默多读一类文件。
+- 台账与汇总如果留在根上，「事实库」就散在两处；只读 `facts/` 的复盘与 `ra why` 会漏掉族级不可用与覆盖率。
+- 渲染件与核心产物同层时，一份 `graph.json` 与它派生出的几十份副本混在一起，整目录同步的下游连可视化一起搬走；反过来把 `graph.json` 埋进子目录，下游又要多记一层路径。
+
+因此下游只以 `export/` 与 `facts/` 为查表入口，其余目录是分析过程与可视化；`graph.json` 与 `guide.md` 是每版各一份的产物，直接放产物根上。`ra-paths` 把渲染件写到 `--graph` 同级的 `paths/` 目录：视图跟着内部表示走，但不占据核心产物那层。
+
+## 三、关系图：两条命令，中间一份文件
 
 可视化最初是一次性脚本，每次运行都重建事实库、编译规则、重算不动点再渲染。两个问题：内部表示没有产物，外部消费者拿不到；建图与画图耦合，调一次画图参数就重算一遍。
 
 ```
-ra graph --label 26.3                            # 产物：output/26.3/graph.json
-ra-paths --graph output/26.3/graph.json <物品 id>  # 视图：.dot / .svg / .html
+ra graph --label 26.3                                    # 产物：output/26.3/graph.json
+ra-paths --graph output/26.3/graph.json <物品 id>        # 视图：output/26.3/paths/ 下的 .dot / .svg / .html
 ```
 
 `ra graph` 留在主命令下，因为它是管道产物。`ra-paths` 是**独立命令**，理由两条：职责不同（主管道每一步都是下一个的输入，可视化只是产物的消费者）；依赖不同（主管道不需要 Graphviz，独立之后缺 `dot` 的人仍能跑完整条链）。

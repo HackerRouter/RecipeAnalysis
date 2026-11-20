@@ -15,7 +15,7 @@
 | `adapters/` | 输入包 | 事实 + 台账行 | 可达性、知识以外的游戏规则 |
 | `ir/` | 事实 + 知识表 | Horn 规则、种子、统计 | 文件系统、求解 |
 | `solve/` | 规则 + 种子 | 三值状态、证明、归因 | 任何游戏知识 |
-| `report/` | 求解结果 | `output/` 下的报告与关系图内部表示 | 读 `inputs/` |
+| `report/` | 求解结果 | `output/<label>/report/`、根上的 `graph.json` 与 `paths/` 渲染件 | 读 `inputs/` |
 
 可视化（`report/paths/` 的渲染部分）不属这条管道：它是独立命令 `ra-paths`，
 消费 `ra graph` 的产物，不参与分析链，且需要 Graphviz。分工的理由见
@@ -33,7 +33,7 @@
 | 目标 | 落点 | 验证 |
 |---|---|---|
 | 加一个版本 | 放输入包到 `inputs/<label>/`，`ra inputs init` | `pytest --label <label>`；`ingest/test_probe_integration.py` 的 `EXPECTED` 要登记该版本 |
-| 加一种数据包来源 | `probe/` 认目录 + `adapters/` 加解析器 | 台账里每个新文件都有行；`facts-summary.json` 计数对得上 |
+| 加一种数据包来源 | `probe/` 认目录 + `adapters/` 加解析器 | 台账里每个新文件都有行；`facts/summary.json` 计数对得上 |
 | 改数据包覆盖语义（覆盖顺序、标签合并、filter） | `inputs/datapacks.py` | `tests/unit/test_datapack_overlay.py`；每项行为都有对应用例 |
 | 新增一步输入装配（新派生品、新第三方输入） | `inputs/` 新模块 + `cli._prepare` + `paths.py` 访问器；生效数据根变更要同步 `adapters/base.data_root` | `ra inputs init` 的输出能看出该步结果；台账无未交代文件 |
 | 加一种知识 | `knowledge/maps/<category>/<名>.json`，在 `ir/knowledge.py` 读取 | 条目带 `basis`；`knowledge/README.md` 记字段 |

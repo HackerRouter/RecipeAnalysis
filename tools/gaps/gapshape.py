@@ -8,7 +8,7 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8")
 
 label = sys.argv[1] if len(sys.argv) > 1 else "26.3"
-rows = [json.loads(l) for l in pathlib.Path(f"output/{label}/gaps.jsonl").open(encoding="utf-8")]
+rows = [json.loads(l) for l in pathlib.Path(f"output/{label}/report/gaps.jsonl").open(encoding="utf-8")]
 
 by_reason = collections.Counter(r["reason"] for r in rows)
 print("归因:", dict(by_reason))

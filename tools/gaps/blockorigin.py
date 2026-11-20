@@ -47,7 +47,7 @@ no_worldgen: list[str] = []
 has_worldgen: list[str] = []
 other: list[str] = []
 
-for row in (json.loads(l) for l in pathlib.Path(f"output/{label}/reachability.jsonl").open(encoding="utf-8")):
+for row in (json.loads(l) for l in pathlib.Path(f"output/{label}/report/reachability.jsonl").open(encoding="utf-8")):
     if row["status"] == "true" or not row["node"].startswith("item:"):
         continue
     rules = rule_set.of_head(row["node"])

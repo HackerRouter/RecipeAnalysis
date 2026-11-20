@@ -11,13 +11,13 @@ sys.stdout.reconfigure(encoding="utf-8")
 label = sys.argv[1] if len(sys.argv) > 1 else "26.3"
 nodes = [
     json.loads(l)["node"]
-    for l in pathlib.Path(f"output/{label}/reachability.jsonl").open(encoding="utf-8")
+    for l in pathlib.Path(f"output/{label}/report/reachability.jsonl").open(encoding="utf-8")
 ]
 gaps = {
     json.loads(l)["node"]
-    for l in pathlib.Path(f"output/{label}/gaps.jsonl").open(encoding="utf-8")
+    for l in pathlib.Path(f"output/{label}/report/gaps.jsonl").open(encoding="utf-8")
 }
-for line in pathlib.Path(f"output/{label}/reachability.jsonl").open(encoding="utf-8"):
+for line in pathlib.Path(f"output/{label}/report/reachability.jsonl").open(encoding="utf-8"):
     row = json.loads(line)
     if row.get("reason") == "no_rule":
         gaps.add(row["node"])

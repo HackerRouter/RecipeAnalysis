@@ -305,7 +305,7 @@ IR 的 `body` 只有 AND，所以槽位内多选要在编译期展开成多条�
 旧版数据**不写** `destination`：它的值等于代码默认值时序列化会省略。默认值从源码取
 （`ExplorationMapFunction.DEFAULT_FEATURE = ConfiguredStructureTags.ON_TREASURE_MAPS`），
 补出来的条目带 `map_destination_default: true`——与数据里写明的分开，两者可信度不同。
-源码里也找不到默认值、或默认标签不在 `tag` 事实里时不补，只把条数记进 `facts-summary.json`
+源码里也找不到默认值、或默认标签不在 `tag` 事实里时不补，只把条数记进 `facts/summary.json`
 的 `loot_map_destination_default_unresolved`。
 
 **摊平不等于丢语义。** 逐条目一行时仍要带两样东西：

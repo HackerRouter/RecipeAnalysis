@@ -31,7 +31,7 @@
 
 ### 族级不可用
 
-版本没有某类报告时，用 `FactStore.mark_unavailable` 登记，**不用空集合代替「没有」**，也不写台账——台账的语义是「每个输入文件一行」，写进去会让覆盖率分母虚高。族级不可用只进 `facts-summary.json` 的 `unavailable_families`。
+版本没有某类报告时，用 `FactStore.mark_unavailable` 登记，**不用空集合代替「没有」**，也不写台账——台账的语义是「每个输入文件一行」，写进去会让覆盖率分母虚高。族级不可用只进 `facts/summary.json` 的 `unavailable_families`。
 
 ## 二、链接种类向 12 种收敛
 

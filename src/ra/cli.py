@@ -42,6 +42,11 @@ from .paths import (
     inputs_root,
     manifest_file,
     output_dir,
+    output_export,
+    output_facts,
+    output_paths,
+    output_probe,
+    output_report,
     pack_data,
     pack_jar,
     repo_root,
@@ -245,12 +250,15 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     registries = Registries.load(reports.root / "registries.json")
     profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
-    out_dir = output_dir(root, manifest.label)
-    write_json(out_dir / "profile.json", _profile_payload(profile, reports, manifest))
+    write_json(
+        output_probe(root, manifest.label) / "profile.json",
+        _profile_payload(profile, reports, manifest),
+    )
 
+    facts_dir = output_facts(root, manifest.label)
     store, unaccounted = _ingest_store(profile, pack_dir, manifest.label, merge)
-    store.extra["ledger_drift"] = compare_ledger(out_dir, store)
-    paths = store.write(out_dir)
+    store.extra["ledger_drift"] = compare_ledger(facts_dir, store)
+    store.write(facts_dir)
 
     print(f"事实种类     {store.kind_counts()}")
     print(f"事实状态     {store.status_counts()}")
@@ -291,7 +299,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
             print(f"  {item['file']}: {item['before']} -> {item['after']}")
     else:
         print("\n台账漂移   无（与上次运行一致）")
-    print(f"\n写入 {out_dir}")
+    print(f"\n写入 {facts_dir}")
 
     if not args.allow_unknown:
         try:
@@ -330,7 +338,7 @@ def cmd_probe(args: argparse.Namespace) -> int:
     registries = Registries.load(reports.root / "registries.json")
     profile = build_profile(pack_dir, manifest, reports, registries, structures, merge=merge)
 
-    out_path = output_dir(root, manifest.label) / "profile.json"
+    out_path = output_probe(root, manifest.label) / "profile.json"
     write_json(out_path, _profile_payload(profile, reports, manifest))
 
     print(f"label            {profile.label}")
@@ -402,10 +410,10 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     store, unaccounted = _ingest_store(profile, pack_dir, manifest.label, merge)
 
-    out_dir = output_dir(root, manifest.label)
     # `run` 也落事实：报告里的每个判定都要能用 `output/<label>/facts/` 复盘，
     # 否则改了适配器之后只有报告变、事实不变，核对工具读到的是上一次的输入
-    store.write(out_dir)
+    facts_dir = output_facts(root, manifest.label)
+    store.write(facts_dir)
 
     try:
         rule_set, compile_report = compile_ir(store, root)
@@ -433,7 +441,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         exceptions=load_exceptions(root, universe),
     )
 
-    out_dir = output_dir(root, manifest.label)
+    out_dir = output_report(root, manifest.label)
     write_reachability(out_dir / "reachability.jsonl", reachability)
     write_report_json(out_dir / "coverage.json", build_coverage(rule_set, result, compile_json))
     write_report_json(
@@ -523,9 +531,8 @@ def cmd_why(args: argparse.Namespace) -> int:
     from .report import build_reachability
     from .solve import enumerate_proofs, solve
 
-    root, pack_dir, manifest = _pack(args)
-    out_dir = output_dir(root, manifest.label)
-    facts_dir = out_dir / "facts"
+    root, _, manifest = _pack(args)
+    facts_dir = output_facts(root, manifest.label)
     if not facts_dir.is_dir():
         print(f"错误：{facts_dir} 不存在，先跑 `ra run --label {manifest.label}`", file=sys.stderr)
         return 1
@@ -616,8 +623,7 @@ def cmd_graph(args: argparse.Namespace) -> int:
     from .solve import solve
 
     root, _, manifest = _pack(args)
-    out_dir = output_dir(root, manifest.label)
-    facts_dir = out_dir / "facts"
+    facts_dir = output_facts(root, manifest.label)
     if not facts_dir.is_dir():
         print(f"错误：{facts_dir} 不存在，先跑 `ra run --label {manifest.label}`", file=sys.stderr)
         return 1
@@ -638,7 +644,8 @@ def cmd_graph(args: argparse.Namespace) -> int:
         ir_schema=IR_SCHEMA,
         facts_digest=dict(store.kind_counts()),
     )
-    path = out_dir / GRAPH_FILE
+    graph_dir = output_dir(root, manifest.label)
+    path = graph_dir / GRAPH_FILE
     write_graph(graph, path)
 
     size = path.stat().st_size
@@ -652,6 +659,7 @@ def cmd_graph(args: argparse.Namespace) -> int:
     print(f"体积   {size / 1024 / 1024:.2f} MB（graph_schema {graph.header.graph_schema}）")
     print(f" -> {path}")
     print(f"\n从这个文件出图：ra-paths --graph {path} <物品 id>")
+    print(f"渲染件写入 {output_paths(root, manifest.label)}")
     return 0
 
 
@@ -681,8 +689,7 @@ def cmd_export(args: argparse.Namespace) -> int:
     from .report.structure_tables import TABLE_NAMES, build_structure_tables
 
     root, _, manifest = _pack(args)
-    out_dir = output_dir(root, manifest.label)
-    facts_dir = out_dir / "facts"
+    facts_dir = output_facts(root, manifest.label)
     if not facts_dir.is_dir():
         print(
             f"错误：{facts_dir} 不存在，先跑 `ra ingest --label {manifest.label}`",
@@ -694,18 +701,19 @@ def cmd_export(args: argparse.Namespace) -> int:
     tables = build_structure_tables(store)
     tables.update(build_spawn_tables(store))
     tables.update(build_mining_tables(store))
+    export_dir = output_export(root, manifest.label)
     counts: dict[str, int] = {}
     for name in (*TABLE_NAMES, TABLE_SPAWNS, *MINING_TABLES):
-        counts[name] = write_jsonl(out_dir / f"{name}.jsonl", tables[name])
-        print(f"{name:<20} {counts[name]:>7} 行 -> {out_dir / f'{name}.jsonl'}")
+        counts[name] = write_jsonl(export_dir / f"{name}.jsonl", tables[name])
+        print(f"{name:<20} {counts[name]:>7} 行 -> {export_dir / f'{name}.jsonl'}")
 
     formula = mining_formula(store)
     if formula is not None:
-        write_json(out_dir / FORMULA_FILE, formula)
-        print(f"{FORMULA_FILE:<20} {'':>7}   -> {out_dir / FORMULA_FILE}")
+        write_json(export_dir / FORMULA_FILE, formula)
+        print(f"{FORMULA_FILE:<20} {'':>7}   -> {export_dir / FORMULA_FILE}")
 
     write_json(
-        out_dir / "exports.json",
+        export_dir / "exports.json",
         {
             "label": manifest.label,
             "facts_digest": dict(store.kind_counts()),
@@ -727,17 +735,19 @@ def cmd_guide(args: argparse.Namespace) -> int:
     root, pack_dir, manifest = _pack(args)
     out_dir = output_dir(root, manifest.label)
 
-    profile = _read_json_optional(out_dir / "profile.json")
+    profile_path = output_probe(root, manifest.label) / "profile.json"
+    profile = _read_json_optional(profile_path)
     if profile is None:
-        print(f"错误：{out_dir / 'profile.json'} 不存在，先跑 `ra probe --label {manifest.label}`",
+        print(f"错误：{profile_path} 不存在，先跑 `ra probe --label {manifest.label}`",
               file=sys.stderr)
         return 1
 
+    report_dir = output_report(root, manifest.label)
     text = render_guide(
         profile=profile,
-        facts_summary=_read_json_optional(out_dir / "facts-summary.json"),
-        coverage=_read_json_optional(out_dir / "coverage.json"),
-        run=_read_json_optional(out_dir / "run.json"),
+        facts_summary=_read_json_optional(output_facts(root, manifest.label) / "summary.json"),
+        coverage=_read_json_optional(report_dir / "coverage.json"),
+        run=_read_json_optional(report_dir / "run.json"),
         root=str(root),
     )
 

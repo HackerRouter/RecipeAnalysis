@@ -132,7 +132,7 @@ ra guide       --label 26.3                     # 这个版本的适配结论
 
 ```bash
 ra graph --label 26.3                                  # 写 output/26.3/graph.json（规则 + 三值状态 + 种子）
-ra-paths --graph output/26.3/graph.json minecraft:emerald
+ra-paths --graph output/26.3/graph.json minecraft:emerald   # 渲染件写 output/26.3/paths/
 ```
 
 `ra-paths` **只读内部表示文件**，不碰 `inputs/`、不重算规则与不动点，所以同一份数据可以换参数反复画。参数分三类：减噪（`--merge-isomorphic` / `--merge-leaves` / `--group-min`）、展开（`--expand-tags` / `--expand-conditions` / `--expand-groups`）、预算（`--depth` / `--branches` / `--max-nodes` / `--max-groups`）。减噪与预算不互相压制：被预算挡住的成员仍计入同构折叠判据，所以 `--branches 4` 下加 `--merge-isomorphic 3` 仍会收起 13 种木台阶。
@@ -147,28 +147,39 @@ ra-paths --graph output/26.3/graph.json minecraft:emerald
 
 ### 产物
 
-产物在 `output/<label>/`：
+产物在 `output/<label>/`，按层分目录，各命令只写自己那一层：
+
+| 路径 | 内容 | 生成命令 |
+|---|---|---|
+| `facts/<种类>.jsonl` | 事实，每条带 `prov` 与 `status` | `ra ingest` / `ra run` |
+| `facts/ledger.jsonl` | 每个输入文件一行：`parsed` / `partial` / `classified_skip` / `failed` | `ra ingest` / `ra run` |
+| `facts/summary.json` | 事实计数、状态分布、按族覆盖率、跳过规则统计、族级不可用 | `ra ingest` / `ra run` |
+| `report/reachability.jsonl` | 逐节点状态与归因 | `ra run` |
+| `report/coverage.json` | 规则覆盖、未解释输入、`UNKNOWN` 分布 | `ra run` |
+| `report/gaps.jsonl` | 不属于 `no_rule` 的不可达项 | `ra run` |
+| `report/run.json` | 复算凭据：jar 摘要、IR schema、事实摘要、提交号 | `ra run` |
+| `report/harvest.jsonl` | 方块 → 最低工具等级 / 最弱合格工具 | `ra run` |
+| `probe/profile.json` | 探测结果、jar 摘要、reports 摘要、Java 版本、生效数据根与数据包覆盖摘要 | `ra probe` / `ra ingest` |
+| `graph.json` | 全量关系图的内部表示：规则 + 三值状态 + 种子（核心产物，与 `guide.md` 同在产物根上） | `ra graph` |
+| `paths/paths_<label>_<物品>.{dot,svg,html}` | 单个物品的来源图（派生视图，可反复重画） | `ra-paths` |
+| `guide.md` | 该版本的适配指南：目录归属、形状、未归属项、族级不可用 | `ra guide` |
+
+`export/` 是下游可查表，按 `exports.json` 声明的表名取文件：
 
 | 文件 | 内容 |
 |---|---|
-| `profile.json` | 探测结果、jar 摘要、reports 摘要、Java 版本、生效数据根与数据包覆盖摘要 |
-| `facts/<种类>.jsonl` | 事实，每条带 `prov` 与 `status` |
-| `ledger.jsonl` | 每个输入文件一行：`parsed` / `partial` / `classified_skip` / `failed` |
-| `facts-summary.json` | 计数、状态分布、按族覆盖率、跳过规则统计 |
-| `coverage.json` / `reachability.jsonl` / `gaps.jsonl` | 规则覆盖、逐节点状态、不可达项与归因 |
-| `structures.jsonl` | 结构 → 起始池、拼装深度上限、全部可达池与模板权重（`ra export` 生成） |
-| `template_containers.jsonl` | 模板 → 容器：坐标 + 战利品表（表由生成代码挂上时为 null 并标 `loot_bound`）+ 方块实体类型；处理器注入的带表方块另标 `via=processor` 与每片段上限（`ra export` 生成） |
-| `template_blocks.jsonl` | 模板 → 方块 ID + 状态串 + 出现次数（`ra export` 生成） |
-| `structure_containers.jsonl` | 结构 → 生成代码里挂的战利品表：容器形态 + 表 + 调用点数（`ra export` 生成） |
-| `spawn_tables.jsonl` | 刷怪表：群系 / 结构 / 试炼刷怪笼 / 模板刷怪笼 / 袭击波次 → 类别 + 实体 + 权重 + 数量 + 波次 + 前提（`ra export` 生成） |
-| `mining_blocks.jsonl` | 方块 → 硬度、爆炸抗性、是否要求正确工具（`ra export` 生成） |
-| `mining_tools.jsonl` | 工具 → 默认挖掘速度 + 有序规则（选择器、速度、是否正确工具）（`ra export` 生成） |
-| `mining_tool_materials.jsonl` | 工具材料 → 速度、耐久、附魔价值（`ra export` 生成） |
-| `mining_formula.json` | 挖掘进度公式：每 tick 进度 = 玩家速度 / 硬度 / (正确工具 ? 30 : 100)，累计 ≥ 1 破坏；另有 `-1` 哨兵与玩家侧修正项（`ra export` 生成） |
-| `exports.json` | 各表的行数与来源事实计数（`ra export` 生成） |
-| `graph.json` | 全量关系图的内部表示：规则 + 三值状态 + 种子（`ra graph` 生成） |
-| `paths_<label>_<物品>.{dot,svg,html}` | 单个物品的来源图（`ra-paths` 生成） |
-| `guide.md` | 该版本的适配指南：目录归属、形状、未归属项、族级不可用（`ra guide` 生成） |
+| `structures.jsonl` | 结构 → 起始池、拼装深度上限、全部可达池与模板权重 |
+| `template_containers.jsonl` | 模板 → 容器：坐标 + 战利品表（表由生成代码挂上时为 null 并标 `loot_bound`）+ 方块实体类型；处理器注入的带表方块另标 `via=processor` 与每片段上限 |
+| `template_blocks.jsonl` | 模板 → 方块 ID + 状态串 + 出现次数 |
+| `structure_containers.jsonl` | 结构 → 生成代码里挂的战利品表：容器形态 + 表 + 调用点数 |
+| `spawn_tables.jsonl` | 刷怪表：群系 / 结构 / 试炼刷怪笼 / 模板刷怪笼 / 袭击波次 → 类别 + 实体 + 权重 + 数量 + 波次 + 前提 |
+| `mining_blocks.jsonl` | 方块 → 硬度、爆炸抗性、是否要求正确工具 |
+| `mining_tools.jsonl` | 工具 → 默认挖掘速度 + 有序规则（选择器、速度、是否正确工具） |
+| `mining_tool_materials.jsonl` | 工具材料 → 速度、耐久、附魔价值 |
+| `mining_formula.json` | 挖掘进度公式：每 tick 进度 = 玩家速度 / 硬度 / (正确工具 ? 30 : 100)，累计 ≥ 1 破坏；另有 `-1` 哨兵与玩家侧修正项 |
+| `exports.json` | 各表的行数与来源事实计数 |
+
+除 `export/` 与 `facts/` 外，其余目录是分析过程与可视化，不构成下游查表契约。
 
 文件数、可达率这类随输入变化的数字一律现场从产物读取，不写入仓库内的文档。适配新版本时先读 `guide.md`，再对照 [`docs/shapes.md`](docs/shapes.md) 的判据。
 

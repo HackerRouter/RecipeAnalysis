@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..facts.store import LEDGER_FILE
+
 __all__ = ["compare_ledger"]
 
 # 每类变化最多保留的明细条数。台账动辄上千行，全量塞进 summary 没有意义，
@@ -37,14 +39,14 @@ def _read_statuses(path: Path) -> dict[str, str]:
     return rows
 
 
-def compare_ledger(out_dir: Path, store) -> dict:
-    """比对本次台账与该目录下已有的 `ledger.jsonl`。
+def compare_ledger(facts_dir: Path, store) -> dict:
+    """比对本次台账与事实目录里已有的 `ledger.jsonl`。
 
     返回的字典直接进 `store.extra["ledger_drift"]`，由 CLI 打印摘要。
     状态翻转与「新出现 / 消失」分开报：前者是判据变了，后者是输入变了，
     处理方式不同。
     """
-    before = _read_statuses(out_dir / "ledger.jsonl")
+    before = _read_statuses(facts_dir / LEDGER_FILE)
     if not before:
         return {"baseline": True, "changed": 0}
 

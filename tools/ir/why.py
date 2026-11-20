@@ -20,7 +20,7 @@ targets = sys.argv[2:] or [
     "table:minecraft:blocks/stone",
 ]
 
-base = Path("output") / label
+base = Path("output") / label / "report"
 rows = {
     json.loads(line)["node"]: json.loads(line)
     for line in (base / "reachability.jsonl").open(encoding="utf-8")

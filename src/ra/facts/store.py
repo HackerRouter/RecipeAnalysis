@@ -12,7 +12,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..util.jsonio import write_json, write_jsonl
-from .schema import Coverage, Fact, Ledger, LedgerStatus, Prov, Status
+from .schema import Coverage, Fact, Ledger, LedgerRow, LedgerStatus, Prov, Status
+
+# 事实目录里的三个非事实文件。`facts/` 同时是「事实库」的落盘根：事实按种类
+# 一文件，台账与汇总并排放在同一层。下游按事实种类取文件，所以要能一眼区分。
+LEDGER_FILE = "ledger.jsonl"
+SUMMARY_FILE = "summary.json"
+
+
+def _ledger_row(row: dict) -> LedgerRow:
+    """台账行的反向构造。`LedgerRow.as_json` 的键集就是这里的参数集。"""
+    return LedgerRow(
+        file=row["file"],
+        status=LedgerStatus(row["status"]),
+        family=row.get("family", "unclassified"),
+        rule=row.get("rule"),
+        facts=int(row.get("facts", 0)),
+        missing=tuple(row.get("missing") or ()),
+        error=row.get("error"),
+        note=row.get("note"),
+    )
 
 
 @dataclass
@@ -36,16 +55,24 @@ class FactStore:
 
     @classmethod
     def read(cls, facts_dir: Path, label: str = "") -> "FactStore":
-        """从 `output/<label>/facts/*.jsonl` 反序列化，供复盘与 `ra why`。
+        """从 `output/<label>/facts/` 反序列化，供复盘与 `ra why`。
 
         为什么不重跑适配器：`run` 已经把事实落盘，重算一次 ingest 要扫七千个
         Java 文件。复盘要的是「输入没变时结论可重算」，而事实就是那层的输入。
 
-        同时读回 `facts-summary.json` 里的 `extra` 与 `unavailable`
-        （物品对账、资源统计、族级不可用），否则复盘看到的覆盖面会缺块。
+        同目录下的 `ledger.jsonl` 与 `summary.json` 不是事实（台账与汇总），
+        读事实时按文件名分开处理：台账读回 `store.ledger`，`summary.json`
+        里的 `extra` 与 `unavailable`（物品对账、资源统计、族级不可用）也读回来，
+        否则复盘看到的覆盖面会缺块。
         """
         store = cls(label=label)
         for path in sorted(facts_dir.glob("*.jsonl")):
+            if path.name == LEDGER_FILE:
+                for line in path.open(encoding="utf-8"):
+                    line = line.strip()
+                    if line:
+                        store.ledger.add(_ledger_row(json.loads(line)))
+                continue
             for line in path.open(encoding="utf-8"):
                 line = line.strip()
                 if not line:
@@ -62,7 +89,7 @@ class FactStore:
                         schema=int(row.get("schema", 1)),
                     )
                 )
-        summary = facts_dir.parent / "facts-summary.json"
+        summary = facts_dir / SUMMARY_FILE
         if summary.is_file():
             doc = json.loads(summary.read_text(encoding="utf-8"))
             if isinstance(doc, dict):
@@ -137,8 +164,12 @@ class FactStore:
             for family, slot in sorted(stats.items())
         ]
 
-    def write(self, out_dir: Path) -> dict[str, Path]:
-        facts_dir = out_dir / "facts"
+    def write(self, facts_dir: Path) -> dict[str, Path]:
+        """把事实、台账与汇总一起写进事实目录。
+
+        三者同处一层：读 `facts/` 的人要能同时拿到「有哪些记录」「每个输入文件
+        的去向」「计数与族级不可用」，分开放会让复盘漏读其中一份。
+        """
         paths: dict[str, Path] = {}
 
         for kind in sorted(self._by_kind):
@@ -146,11 +177,11 @@ class FactStore:
             write_jsonl(path, (fact.as_json() for fact in self._by_kind[kind]))
             paths[kind] = path
 
-        ledger_path = out_dir / "ledger.jsonl"
+        ledger_path = facts_dir / LEDGER_FILE
         write_jsonl(ledger_path, (row.as_json() for row in self.ledger.rows))
         paths["ledger"] = ledger_path
 
-        summary_path = out_dir / "facts-summary.json"
+        summary_path = facts_dir / SUMMARY_FILE
         write_json(
             summary_path,
             {
